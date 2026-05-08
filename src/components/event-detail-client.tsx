@@ -177,7 +177,7 @@ function formatTime(time: string): string {
 function statusBadgeVariant(status: "confirmed" | "pending" | "declined") {
   if (status === "confirmed") return "success";
   if (status === "pending") return "warning";
-  return "destructive";
+  return "danger";
 }
 
 function statusLabel(status: "confirmed" | "pending" | "declined"): string {
