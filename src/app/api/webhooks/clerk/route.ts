@@ -37,14 +37,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    const { type, data } = event as { type: string; data: { id: string; attributes?: Record<string, unknown> } };
+    const { type, data } = event as { type: string; data: Record<string, unknown> };
     const supabase = createServiceClient();
 
     console.log(`Processing webhook event: ${type}`);
 
     if (type === "user.created" || type === "user.updated") {
-      const attributes = data.attributes || data;
-      const id = attributes.id as string || data.id;
+      const attributes = (data.attributes as Record<string, unknown>) || data;
+      const id = (attributes.id as string) || (data.id as string);
       const emailAddresses = attributes.email_addresses as { email_address: string }[] | undefined;
       const email = emailAddresses?.[0]?.email_address || "";
       const firstName = attributes.first_name as string | undefined;
@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === "user.deleted") {
-      const attributes = data.attributes || data;
-      const id = attributes.id as string || data.id;
+      const attributes = (data.attributes as Record<string, unknown>) || data;
+      const id = (attributes.id as string) || (data.id as string);
       const { error } = await supabase.from("profiles").update({ is_active: false }).eq("id", id);
 
       if (error) {
