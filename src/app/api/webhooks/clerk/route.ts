@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
-import { Resend } from "resend";
 import { createServiceClient } from "@/lib/supabase";
-import { WelcomeEmail } from "@/emails/welcome";
 
 const svixWebhookSecret = process.env.CLERK_WEBHOOK_SECRET || "";
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-interface WebhookEvent {
-  type: string;
-  data: {
-    id: string;
-    email_addresses?: { email_address: string }[];
-    first_name?: string;
-    last_name?: string;
-    image_url?: string;
-  };
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,72 +14,74 @@ export async function POST(req: NextRequest) {
     const svixSignature = headers.get("svix-signature");
 
     if (!svixId || !svixTimestamp || !svixSignature) {
+      console.error("Missing svix headers");
       return NextResponse.json({ error: "Missing svix headers" }, { status: 400 });
     }
 
+    if (!svixWebhookSecret) {
+      console.error("CLERK_WEBHOOK_SECRET not configured");
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+    }
+
     const wh = new Webhook(svixWebhookSecret);
-    let event: WebhookEvent;
+    let event;
 
     try {
-      const rawEvent = wh.verify(payload, {
+      event = wh.verify(payload, {
         "svix-id": svixId,
         "svix-timestamp": svixTimestamp,
         "svix-signature": svixSignature,
       });
-      event = rawEvent as WebhookEvent;
     } catch (err) {
       console.error("Webhook verification failed:", err);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    const { type, data } = event;
+    const { type, data } = event as { type: string; data: { id: string; attributes?: Record<string, unknown> } };
     const supabase = createServiceClient();
 
+    console.log(`Processing webhook event: ${type}`);
+
     if (type === "user.created" || type === "user.updated") {
-      const { id, email_addresses, first_name, last_name, image_url } = data;
-      const email = email_addresses?.[0]?.email_address || "";
-      const fullName = [first_name, last_name].filter(Boolean).join(" ") || email;
+      const attributes = data.attributes || data;
+      const id = attributes.id as string || data.id;
+      const emailAddresses = attributes.email_addresses as { email_address: string }[] | undefined;
+      const email = emailAddresses?.[0]?.email_address || "";
+      const firstName = attributes.first_name as string | undefined;
+      const lastName = attributes.last_name as string | undefined;
+      const imageUrl = attributes.image_url as string | undefined;
+      const fullName = [firstName, lastName].filter(Boolean).join(" ") || email;
+
       const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase();
-      const isConfiguredAdmin = adminEmail && email.toLowerCase() === adminEmail;
+      const isAdmin = adminEmail && email.toLowerCase() === adminEmail;
+
+      console.log(`Upserting profile for: ${email}, id: ${id}`);
 
       const { error } = await supabase.from("profiles").upsert({
         id,
         email,
         full_name: fullName,
-        avatar_url: image_url || null,
-        role: isConfiguredAdmin ? "admin" : "participant",
-        roles: [],
-        instruments: [],
-        can_sing: false,
-        is_leader: Boolean(isConfiguredAdmin),
+        avatar_url: imageUrl || null,
+        role: isAdmin ? "admin" : "participant",
         is_active: true,
       }, { onConflict: "id" });
 
       if (error) {
         console.error("Error upserting profile:", error);
-        return NextResponse.json({ error: "Database error" }, { status: 500 });
+        return NextResponse.json({ error: `Database error: ${error.message}` }, { status: 500 });
       }
 
-      if (type === "user.created" && process.env.RESEND_API_KEY) {
-        await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || "WorshipApp <onboarding@resend.dev>",
-          to: email,
-          subject: "Bienvenido a WorshipApp",
-          react: WelcomeEmail({
-            userName: fullName,
-            appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-          }),
-        });
-      }
+      console.log(`Profile upserted for ${email} with role ${isAdmin ? "admin" : "participant"}`);
     }
 
     if (type === "user.deleted") {
-      const { id } = data;
+      const attributes = data.attributes || data;
+      const id = attributes.id as string || data.id;
       const { error } = await supabase.from("profiles").update({ is_active: false }).eq("id", id);
 
       if (error) {
         console.error("Error deactivating profile:", error);
-        return NextResponse.json({ error: "Database error" }, { status: 500 });
+        return NextResponse.json({ error: `Database error: ${error.message}` }, { status: 500 });
       }
     }
 
