@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
+@theme {
+  --color-surface-dim: hsl(225 30% 96%);
+  --color-surface-container: hsl(225 25% 95%);
+  --color-surface-container-low: hsl(225 20% 97%);
+  --color-surface-container-high: hsl(225 25% 93%);
+  --color-on-surface: hsl(225 37% 10%);
+  --color-on-surface-variant: hsl(225 15% 45%);
+  --color-outline-variant: hsl(230 31% 86%);
+  
+  --font-headline: "Lexend", sans-serif;
+  --font-body: "Inter", sans-serif;
+  
+  --shadow-card: 0 1px 4px rgba(15, 19, 34, 0.06), 0 4px 16px rgba(15, 19, 34, 0.06);
+  --shadow-card-md: 0 2px 8px rgba(15, 19, 34, 0.08), 0 8px 24px rgba(15, 19, 34, 0.08);
+  --shadow-primary-glow: 0 2px 12px rgba(37, 99, 235, 0.22);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: 225 60% 98%;
+  --foreground: 225 37% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 225 37% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 225 37% 10%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 262 83% 58%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 225 20% 94%;
+  --muted-foreground: 225 15% 45%;
+  --accent: 221 83% 53%;
+  --accent-foreground: 221 83% 53%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 230 31% 86%;
+  --input: 230 31% 86%;
+  --ring: 221 83% 53%;
+  --radius: 0.75rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: hsl(var(--border));
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+}
+
+@media (min-width: 768px) {
+  .hide-on-mobile {
+    display: block;
+  }
+}
+
+@media (max-width: 767px) {
+  .hide-on-mobile {
+    display: none;
+  }
 }

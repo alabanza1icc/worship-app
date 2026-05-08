@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "github": {
+      "type": "local",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "enabled": true,
+      "environment": {}
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://private--worker-supabase-prod.anomalyco.com/mcp",
+      "enabled": true,
+      "environment": {}
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://opencode-vercel-mcp.fly.dev/mcp",
+      "enabled": true,
+      "environment": {}
+    },
+    "cloudflare": {
+      "type": "http",
+      "url": "https://opencode-cloudflare-mcp.fly.dev/mcp",
+      "enabled": true,
+      "environment": {}
+    }
+  }
+}
