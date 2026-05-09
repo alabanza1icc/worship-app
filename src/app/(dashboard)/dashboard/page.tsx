@@ -9,11 +9,14 @@ import {
   ChevronRight,
   Guitar,
   ArrowUpRight,
+  Bell,
   MessageSquare,
 } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase";
 import { Card } from "@/components/ui";
 import { DashboardAttendanceButtons } from "@/components/dashboard-attendance-buttons";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface Event {
   id: string;
@@ -22,6 +25,15 @@ interface Event {
   event_date: string;
   start_time: string | null;
   location: string | null;
+}
+
+interface Notification {
+  id: string;
+  type: "event_invite" | "song_update" | "team_change" | "schedule_change";
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
 }
 
 const ROLE_TYPE_LABELS: Record<string, string> = {
@@ -34,6 +46,13 @@ const ROLE_TYPE_LABELS: Record<string, string> = {
   keys: "Teclados",
   multimedia: "Multimedia",
   dance: "Danza",
+};
+
+const NOTIFICATION_CONFIG = {
+  event_invite: { icon: CalendarDays, color: "bg-primary/10 text-primary" },
+  song_update: { icon: Music, color: "bg-blue-500/10 text-blue-600" },
+  team_change: { icon: Users, color: "bg-amber-500/10 text-amber-600" },
+  schedule_change: { icon: Clock, color: "bg-destructive/10 text-destructive" },
 };
 
 export default async function DashboardPage() {
@@ -55,9 +74,8 @@ export default async function DashboardPage() {
   }
 
   const displayName = profile?.full_name || clerkUser?.firstName || "Usuario";
-  const userInstrument = profile?.instrument || "Colaborador";
 
-  // Find next upcoming event this user is assigned to
+  // Fetch next upcoming event this user is assigned to
   const today = new Date().toISOString().split("T")[0];
 
   const { data: assignments } = await supabase
@@ -109,13 +127,13 @@ export default async function DashboardPage() {
     }
   }
 
-  // Upcoming events for the list (next 3)
-  const { data: upcomingEvents } = await supabase
-    .from("events")
-    .select("id, title, event_type, event_date, start_time, location")
-    .gte("event_date", today)
-    .order("event_date", { ascending: true })
-    .limit(3);
+  // Fetch real notifications
+  const { data: notifications } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("profile_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(5);
 
   const getMonthAbbr = (dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
@@ -130,18 +148,18 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="px-4 py-8 space-y-10 max-w-4xl mx-auto">
+    <div className="px-4 py-8 space-y-10 max-w-4xl mx-auto pb-32">
       {/* Header */}
       <section>
-        <h1 className="text-4xl font-black tracking-tight text-on-surface font-headline leading-tight">
-          Hola, {displayName.split(" ")[0]} 👋
+        <h1 className="text-5xl font-black tracking-tight text-on-surface font-headline leading-tight">
+          Hola, {displayName.split(" ")[0]}
         </h1>
-        <p className="text-base text-on-surface-variant font-medium mt-1">
+        <p className="text-lg text-on-surface-variant font-medium mt-1">
           Tu dashboard para este fin de semana.
         </p>
       </section>
 
-      {/* Next service card */}
+      {/* Next service hero */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/50">
@@ -159,45 +177,50 @@ export default async function DashboardPage() {
         </div>
 
         {nextEvent ? (
-          <Card className="p-0 overflow-hidden shadow-card-md border-outline-variant/20 relative">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none" />
-            <div className="relative p-6 space-y-6">
-              {/* Title + date */}
+          <Card className="p-0 overflow-hidden shadow-2xl border-outline-variant/20 relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+            <div className="relative p-8 space-y-8">
               <div className="flex justify-between items-start gap-4">
-                <h3 className="text-2xl font-black text-on-surface font-headline leading-tight">
+                <h3 className="text-3xl lg:text-4xl font-black text-on-surface font-headline leading-tight">
                   {nextEvent.title}
                 </h3>
-                <div className="flex flex-col items-center justify-center w-16 h-20 rounded-2xl bg-surface-container border border-outline-variant/20 shadow-sm shrink-0">
-                  <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">
+                <div className="flex flex-col items-center justify-center w-20 h-24 rounded-3xl bg-surface-container border border-outline-variant/20 shadow-sm shrink-0">
+                  <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">
                     {getMonthAbbr(nextEvent.event_date)}
                   </span>
-                  <span className="text-2xl font-black text-on-surface font-headline leading-none mt-1">
+                  <span className="text-3xl font-black text-on-surface font-headline leading-none mt-1">
                     {getDayNum(nextEvent.event_date)}
                   </span>
                 </div>
               </div>
 
-              {/* Meta chips */}
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {nextEvent.start_time && (
-                  <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-surface-container border border-outline-variant/10 shadow-sm">
-                    <Clock className="h-4 w-4 text-primary" />
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container/50 border border-outline-variant/10 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">Horario</span>
+                      <span className="text-sm font-bold text-on-surface">
+                        {nextEvent.start_time.slice(0, 5)} AM - 12:00 PM
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container/50 border border-outline-variant/10 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                    <Guitar className="h-5 w-5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">Tu Función</span>
                     <span className="text-sm font-bold text-on-surface">
-                      {nextEvent.start_time.slice(0, 5)}
+                      {nextEvent.role_type ? ROLE_TYPE_LABELS[nextEvent.role_type] ?? nextEvent.role_type : "Por asignar"}
                     </span>
                   </div>
-                )}
-                {nextEvent.role_type && (
-                  <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-primary-container/40 border border-primary/10 shadow-sm">
-                    <Guitar className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-bold text-primary">
-                      {ROLE_TYPE_LABELS[nextEvent.role_type] ?? nextEvent.role_type}
-                    </span>
-                  </div>
-                )}
+                </div>
               </div>
 
-              {/* Attendance buttons (only if user is in the team) */}
               {nextEvent.teamId && (
                 <DashboardAttendanceButtons
                   eventId={nextEvent.id}
@@ -208,74 +231,85 @@ export default async function DashboardPage() {
             </div>
           </Card>
         ) : (
-          <div className="rounded-[32px] border-2 border-dashed border-outline-variant/30 p-16 text-center">
+          <div className="rounded-[40px] border-2 border-dashed border-outline-variant/30 p-16 text-center bg-surface-container/20">
             <CalendarDays className="h-10 w-10 text-on-surface-variant/20 mx-auto mb-3" />
-            <p className="text-on-surface-variant font-bold text-sm">No hay servicios próximos</p>
+            <p className="text-on-surface-variant font-bold">No hay servicios programados</p>
           </div>
         )}
       </section>
 
-      {/* Upcoming events list */}
-      {(upcomingEvents ?? []).length > 1 && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/50">
-              Próximos Eventos
-            </h2>
-            <Link href="/events" className="text-[10px] font-black uppercase tracking-widest text-primary">
-              Ver todos
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-3">
-            {(upcomingEvents ?? []).slice(1).map((event) => (
-              <Link key={event.id} href={`/events/${event.id}`} className="group">
-                <div className="flex items-center gap-4 rounded-[24px] border border-outline-variant/20 bg-white p-4 shadow-card hover:shadow-card-md hover:border-primary/30 transition-all duration-300">
-                  <div className="flex flex-col items-center justify-center w-12 h-14 rounded-xl bg-surface-container border border-outline-variant/10 shrink-0">
-                    <span className="text-[8px] font-black text-on-surface-variant/50 uppercase">
-                      {getMonthAbbr(event.event_date)}
-                    </span>
-                    <span className="text-base font-black text-on-surface font-headline leading-none">
-                      {getDayNum(event.event_date)}
-                    </span>
+      {/* Notifications list */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/50">
+            Notificaciones
+          </h2>
+          <button className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60 hover:text-primary transition-colors">
+            Ver todas
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {(notifications ?? []).length === 0 ? (
+            <p className="text-sm font-bold text-on-surface-variant/40 px-4 py-8 text-center italic">
+              No tienes notificaciones nuevas
+            </p>
+          ) : (
+            notifications!.map((notif: any) => {
+              const config = NOTIFICATION_CONFIG[notif.type as keyof typeof NOTIFICATION_CONFIG] || {
+                icon: Bell,
+                color: "bg-surface-container text-on-surface-variant",
+              };
+              const Icon = config.icon;
+              
+              return (
+                <Card
+                  key={notif.id}
+                  className="p-5 flex items-center gap-5 hover:border-primary/20 hover:bg-white transition-all cursor-pointer group border-outline-variant/10 shadow-sm"
+                >
+                  <div
+                    className={`w-12 h-12 rounded-2xl ${config.color} flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform`}
+                  >
+                    <Icon className="h-6 w-6" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-on-surface truncate group-hover:text-primary transition-colors font-headline">
-                      {event.title}
+                    <h4 className="text-[11px] font-black text-on-surface-variant/40 uppercase tracking-widest leading-tight mb-1">
+                      {notif.title}
                     </h4>
-                    {event.start_time && (
-                      <span className="text-xs font-semibold text-on-surface-variant">
-                        {event.start_time.slice(0, 5)}
-                        {event.location && ` · ${event.location}`}
-                      </span>
-                    )}
+                    <p className="text-base font-black text-on-surface truncate font-headline leading-tight">
+                      {notif.message}
+                    </p>
+                    <span className="text-[10px] font-bold text-on-surface-variant/30 uppercase tracking-widest mt-1.5 block">
+                      {formatDistanceToNow(new Date(notif.created_at), {
+                        addSuffix: true,
+                        locale: es,
+                      })}
+                    </span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-on-surface-variant/30 group-hover:text-primary transition-colors" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+                  <ChevronRight className="h-5 w-5 text-on-surface-variant/20 group-hover:text-primary transition-colors" />
+                </Card>
+              );
+            })
+          )}
+        </div>
+      </section>
 
       {/* Quick access */}
-      <section className="space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/50 px-1">
-          Acceso Rápido
-        </h2>
-        <div className="grid grid-cols-2 gap-4">
-          {quickLinks.map((item) => (
-            <Link key={item.href} href={item.href} className="group">
-              <Card className="p-6 flex flex-col items-center text-center gap-3 hover:border-primary/20 transition-all">
-                <div className={`w-12 h-12 rounded-2xl ${item.bg} ${item.color} flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm`}>
-                  <item.icon className="h-6 w-6" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors">
-                  {item.label}
-                </span>
-              </Card>
-            </Link>
-          ))}
-        </div>
+      <section className="grid grid-cols-2 gap-4">
+        {quickLinks.map((item) => (
+          <Link key={item.href} href={item.href} className="group">
+            <Card className="p-8 flex flex-col items-center text-center gap-4 hover:border-primary/20 transition-all shadow-md">
+              <div
+                className={`w-14 h-14 rounded-2xl ${item.bg} ${item.color} flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm`}
+              >
+                <item.icon className="h-7 w-7" />
+              </div>
+              <span className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors">
+                {item.label}
+              </span>
+            </Card>
+          </Link>
+        ))}
       </section>
     </div>
   );
