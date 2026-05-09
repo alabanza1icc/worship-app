@@ -1,8 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronLeft,
   Edit,
@@ -11,14 +28,16 @@ import {
   Music2,
   AudioLines,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
   RotateCcw,
   Minus,
+  GripVertical,
+  Copy,
 } from "lucide-react";
 import { Button, Badge, Input, Textarea, Select, Modal } from "@/components/ui";
 import { AudioPlayer } from "@/components/audio-player";
-import { transposeLyricsWithChords } from "@/lib/chart-pro";
+import { SongPartsDisplay, abbreviateSection } from "./chord-sheet";
+import { SongStructure } from "./song-structure";
+import { transposeKey } from "@/lib/chart-pro";
 import { cn } from "@/lib/utils";
 
 interface Song {
@@ -41,6 +60,7 @@ interface SongPart {
   name: string;
   content: string;
   order_index: number;
+  version_id: string | null;
 }
 
 interface SongVersion {
@@ -80,21 +100,91 @@ const FILE_TYPE_LABELS: Record<AudioTrack["file_type"], string> = {
   backing_track: "Pista base",
 };
 
-function renderPartContent(content: string) {
-  const segments = content.split(/(\[[^\]]+\])/);
+function SortablePart({
+  part,
+  isAdmin,
+  onEdit,
+  onDelete,
+}: {
+  part: SongPart;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: part.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   return (
-    <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-on-surface-variant">
-      {segments.map((segment, i) => {
-        if (segment.startsWith("[") && segment.endsWith("]")) {
-          return (
-            <span key={i} className="text-primary font-bold">
-              {segment.slice(1, -1)}
-            </span>
-          );
-        }
-        return <span key={i}>{segment}</span>;
-      })}
-    </pre>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border border-outline-variant/20 bg-white p-4 shadow-sm",
+        isDragging && "shadow-lg ring-2 ring-primary"
+      )}
+    >
+      {isAdmin && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-on-surface-variant/40 hover:text-primary transition-colors"
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+      )}
+      <div className="flex-1">
+        <div className="flex items-center gap-2 mb-2">
+          <span
+            className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white ${
+              part.name.toLowerCase().includes("coro")
+                ? "bg-orange-500/20 text-orange-400"
+                : part.name.toLowerCase().includes("verso")
+                ? "bg-blue-500/20 text-blue-400"
+                : part.name.toLowerCase().includes("puente")
+                ? "bg-purple-500/20 text-purple-400"
+                : part.name.toLowerCase().includes("intro")
+                ? "bg-teal-500/20 text-teal-400"
+                : "bg-white/10 text-white/70"
+            }`}
+          >
+            {abbreviateSection(part.name)}
+          </span>
+          <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">
+            {part.name}
+          </span>
+        </div>
+        <div className="text-xs text-on-surface-variant/60 font-mono pl-10 line-clamp-2">
+          {part.content.slice(0, 80)}...
+        </div>
+      </div>
+      {isAdmin && (
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" onClick={onEdit} className="w-8 h-8 p-0 rounded-lg">
+            <Edit className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="w-8 h-8 p-0 rounded-lg text-destructive hover:bg-destructive/5"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -107,31 +197,42 @@ export function SongDetailClient({
 }: Props) {
   const router = useRouter();
 
-  const defaultVersionId =
-    versions.find((v) => v.is_default)?.id ?? versions[0]?.id ?? null;
+  const defaultVersionId = versions.find((v) => v.is_default)?.id ?? versions[0]?.id ?? null;
 
   const [localParts, setLocalParts] = useState<SongPart[]>(parts);
   const [localVersions, setLocalVersions] = useState<SongVersion[]>(versions);
   const [localAudioTracks] = useState<AudioTrack[]>(audioTracks);
   const [localSong, setLocalSong] = useState<Song>(song);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
-    defaultVersionId
-  );
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(defaultVersionId);
   const [transposition, setTransposition] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Add Part modal
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const filteredParts = useMemo(() => {
+    if (!selectedVersionId) {
+      return localParts.filter((p) => !p.version_id);
+    }
+    return localParts.filter((p) => p.version_id === selectedVersionId);
+  }, [localParts, selectedVersionId]);
+
+  const currentKey = useMemo(() => {
+    if (transposition === 0) return localSong.original_key;
+    return transposeKey(localSong.original_key, transposition);
+  }, [localSong.original_key, transposition]);
+
   const [showAddPart, setShowAddPart] = useState(false);
   const [newPartName, setNewPartName] = useState("");
   const [newPartContent, setNewPartContent] = useState("");
 
-  // Edit Part modal
   const [showEditPart, setShowEditPart] = useState(false);
   const [editingPart, setEditingPart] = useState<SongPart | null>(null);
   const [editPartName, setEditPartName] = useState("");
   const [editPartContent, setEditPartContent] = useState("");
 
-  // Edit Song modal
   const [showEditSong, setShowEditSong] = useState(false);
   const [editSongData, setEditSongData] = useState({
     title: song.title,
@@ -144,12 +245,13 @@ export function SongDetailClient({
     youtube_url: song.youtube_url ?? "",
   });
 
-  // Delete confirm modal
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Add Version modal
   const [showAddVersion, setShowAddVersion] = useState(false);
   const [newVersionName, setNewVersionName] = useState("");
+
+  const [showSaveAsVersion, setShowSaveAsVersion] = useState(false);
+  const [saveVersionName, setSaveVersionName] = useState("");
 
   const changeTransposition = (delta: number) => {
     setTransposition((prev) => {
@@ -159,14 +261,35 @@ export function SongDetailClient({
     });
   };
 
-  const transpositionLabel =
-    transposition === 0
-      ? "ORIGINAL"
-      : transposition > 0
-      ? `+${transposition}`
-      : `${transposition}`;
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
 
-  // --- Part actions ---
+    const oldIndex = filteredParts.findIndex((p) => p.id === active.id);
+    const newIndex = filteredParts.findIndex((p) => p.id === over.id);
+
+    const newFilteredParts = arrayMove(filteredParts, oldIndex, newIndex);
+
+    setLocalParts((prev) => {
+      const otherParts = prev.filter((p) => p.version_id !== selectedVersionId && (selectedVersionId ? p.version_id : !p.version_id));
+      return [...otherParts, ...newFilteredParts];
+    });
+
+    try {
+      await fetch(`/api/songs/${song.id}/parts/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          partId: active.id as string,
+          newIndex: newIndex,
+          versionId: selectedVersionId,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to save order:", err);
+    }
+  };
+
   const handleAddPart = async () => {
     if (!newPartName.trim()) return;
     setLoading(true);
@@ -177,7 +300,8 @@ export function SongDetailClient({
         body: JSON.stringify({
           name: newPartName.trim(),
           content: newPartContent,
-          order_index: localParts.length,
+          order_index: filteredParts.length,
+          version_id: selectedVersionId,
         }),
       });
       if (res.ok) {
@@ -228,10 +352,7 @@ export function SongDetailClient({
   const handleDeletePart = async (partId: string) => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/songs/${song.id}/parts?partId=${partId}`,
-        { method: "DELETE" }
-      );
+      const res = await fetch(`/api/songs/${song.id}/parts?partId=${partId}`, { method: "DELETE" });
       if (res.ok) {
         setLocalParts((prev) => prev.filter((p) => p.id !== partId));
       }
@@ -240,14 +361,10 @@ export function SongDetailClient({
     }
   };
 
-  // --- Song edit ---
   const handleEditSong = async () => {
     setLoading(true);
     try {
-      const tagsArray = editSongData.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
+      const tagsArray = editSongData.tags.split(",").map((t) => t.trim()).filter(Boolean);
       const res = await fetch(`/api/songs/${song.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -272,20 +389,16 @@ export function SongDetailClient({
     }
   };
 
-  // --- Song delete ---
   const handleDeleteSong = async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/songs/${song.id}`, { method: "DELETE" });
-      if (res.ok) {
-        router.push("/songs");
-      }
+      if (res.ok) router.push("/songs");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Version add ---
   const handleAddVersion = async () => {
     if (!newVersionName.trim()) return;
     setLoading(true);
@@ -306,12 +419,34 @@ export function SongDetailClient({
     }
   };
 
+  const handleSaveAsVersion = async () => {
+    if (!saveVersionName.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/songs/${song.id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: saveVersionName.trim(),
+          copyFromVersionId: selectedVersionId,
+        }),
+      });
+      if (res.ok) {
+        const created: SongVersion = await res.json();
+        setLocalVersions((prev) => [...prev, created]);
+        setSelectedVersionId(created.id);
+        setSaveVersionName("");
+        setShowSaveAsVersion(false);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="px-4 py-8 space-y-8 max-w-4xl mx-auto">
-      {/* Header Card */}
       <div className="rounded-[32px] border border-outline-variant/20 bg-white p-8 shadow-card relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
-        
         <div className="relative">
           <div className="mb-6 flex items-start justify-between">
             <div className="space-y-1">
@@ -326,9 +461,11 @@ export function SongDetailClient({
                 {localSong.artist}
               </p>
             </div>
-            
             {isAdmin && (
               <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowSaveAsVersion(true)} className="rounded-2xl">
+                  <Copy className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowEditSong(true)} className="rounded-2xl">
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -339,9 +476,17 @@ export function SongDetailClient({
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <SongStructure
+            parts={filteredParts}
+            onPartClick={(id) => {
+              const el = document.getElementById(`part-${id}`);
+              el?.scrollIntoView({ behavior: "smooth" });
+            }}
+          />
+
+          <div className="flex flex-wrap gap-3 mt-6">
             <Badge variant="default" className="rounded-lg shadow-sm">
-              Tono: {localSong.original_key}
+              Tono: {currentKey}
             </Badge>
             {localSong.tempo && (
               <Badge variant="outline" className="rounded-lg border-outline-variant/20">
@@ -359,10 +504,7 @@ export function SongDetailClient({
           {localSong.tags && localSong.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {localSong.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-lg bg-surface-container px-2.5 py-1 text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest border border-outline-variant/10"
-                >
+                <span key={tag} className="rounded-lg bg-surface-container px-2.5 py-1 text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest border border-outline-variant/10">
                   {tag}
                 </span>
               ))}
@@ -373,7 +515,6 @@ export function SongDetailClient({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 space-y-8">
-          {/* Audio Tracks */}
           {localAudioTracks.length > 0 && (
             <section className="space-y-4">
               <h3 className="text-xl font-bold tracking-tight text-on-surface font-headline flex items-center gap-2">
@@ -395,7 +536,6 @@ export function SongDetailClient({
             </section>
           )}
 
-          {/* Chord / Lyrics section */}
           <section className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-xl font-bold tracking-tight text-on-surface font-headline flex items-center gap-2">
@@ -410,67 +550,57 @@ export function SongDetailClient({
               )}
             </div>
 
-            {localParts.length === 0 ? (
+            {filteredParts.length === 0 ? (
               <div className="rounded-[32px] border border-outline-variant/20 bg-white p-12 text-center shadow-card">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-container text-on-surface-variant/20">
                   <Music2 className="h-8 w-8" />
                 </div>
-                <p className="text-sm font-bold text-on-surface-variant">No hay partes añadidas</p>
+                <p className="text-sm font-bold text-on-surface-variant">No hay partes en esta versión</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {localParts.map((part) => (
-                  <div
-                    key={part.id}
-                    className="rounded-[28px] border border-outline-variant/20 bg-white p-6 shadow-card hover:shadow-card-md transition-all duration-300"
-                  >
-                    <div className="mb-4 flex items-center justify-between">
-                      <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary bg-primary/5 px-3 py-1 rounded-lg border border-primary/10">
-                        {part.name}
-                      </h4>
-                      {isAdmin && (
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => openEditPart(part)} className="w-8 h-8 p-0 rounded-lg">
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeletePart(part.id)} className="w-8 h-8 p-0 rounded-lg text-destructive hover:bg-destructive/5 hover:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="pl-2 border-l-2 border-primary/10">
-                      {renderPartContent(
-                        transposeLyricsWithChords(part.content, transposition)
-                      )}
-                    </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={filteredParts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-3" id="parts-container">
+                    {filteredParts.map((part) => (
+                      <div key={part.id} id={`part-${part.id}`}>
+                        <SortablePart
+                          part={part}
+                          isAdmin={isAdmin}
+                          onEdit={() => openEditPart(part)}
+                          onDelete={() => handleDeletePart(part.id)}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </SortableContext>
+              </DndContext>
+            )}
+
+            {filteredParts.length > 0 && (
+              <div className="mt-6 rounded-2xl border border-outline-variant/10 bg-surface p-6">
+                <h4 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">
+                  Vista Previa del Cifrado
+                </h4>
+                <SongPartsDisplay parts={filteredParts} transposition={transposition} />
               </div>
             )}
           </section>
         </div>
 
-        <aside className="space-y-8">
-          {/* Transposition controls */}
+        <aside className="space-y-6">
           <div className="rounded-[32px] border border-outline-variant/20 bg-white p-6 shadow-card space-y-4">
             <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Transposición</span>
             <div className="flex items-center justify-between gap-4">
-              <button
-                onClick={() => changeTransposition(-1)}
-                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-surface-container text-on-surface-variant hover:bg-primary-container hover:text-primary transition-all active:scale-90"
-              >
+              <button onClick={() => changeTransposition(-1)} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-surface-container text-on-surface-variant hover:bg-primary-container hover:text-primary transition-all active:scale-90">
                 <Minus className="h-5 w-5" />
               </button>
               <div className="flex flex-col items-center">
                 <span className="text-lg font-bold text-primary font-headline">
-                  {transpositionLabel}
+                  {transposition === 0 ? "ORIGINAL" : transposition > 0 ? `+${transposition}` : `${transposition}`}
                 </span>
+                <span className="text-xs text-on-surface-variant">{currentKey}</span>
               </div>
-              <button
-                onClick={() => changeTransposition(1)}
-                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-surface-container text-on-surface-variant hover:bg-primary-container hover:text-primary transition-all active:scale-90"
-              >
+              <button onClick={() => changeTransposition(1)} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-surface-container text-on-surface-variant hover:bg-primary-container hover:text-primary transition-all active:scale-90">
                 <Plus className="h-5 w-5" />
               </button>
             </div>
@@ -482,29 +612,18 @@ export function SongDetailClient({
             )}
           </div>
 
-          {/* External Links */}
           {(localSong.spotify_url || localSong.youtube_url) && (
             <div className="rounded-[32px] border border-outline-variant/20 bg-white p-6 shadow-card space-y-4">
               <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Enlaces externos</span>
               <div className="grid grid-cols-1 gap-2">
                 {localSong.spotify_url && (
-                  <a
-                    href={localSong.spotify_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 rounded-2xl border border-outline-variant/10 bg-surface-container/30 px-4 py-3 text-sm font-bold text-on-surface hover:border-primary/40 hover:bg-white transition-all shadow-sm"
-                  >
+                  <a href={localSong.spotify_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-2xl border border-outline-variant/10 bg-surface-container/30 px-4 py-3 text-sm font-bold text-on-surface hover:border-primary/40 hover:bg-white transition-all shadow-sm">
                     <ExternalLink className="h-4 w-4 text-[#1DB954]" />
                     Spotify
                   </a>
                 )}
                 {localSong.youtube_url && (
-                  <a
-                    href={localSong.youtube_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 rounded-2xl border border-outline-variant/10 bg-surface-container/30 px-4 py-3 text-sm font-bold text-on-surface hover:border-primary/40 hover:bg-white transition-all shadow-sm"
-                  >
+                  <a href={localSong.youtube_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-2xl border border-outline-variant/10 bg-surface-container/30 px-4 py-3 text-sm font-bold text-on-surface hover:border-primary/40 hover:bg-white transition-all shadow-sm">
                     <ExternalLink className="h-4 w-4 text-[#FF0000]" />
                     YouTube
                   </a>
@@ -513,16 +632,12 @@ export function SongDetailClient({
             </div>
           )}
 
-          {/* Versions section */}
           {(localVersions.length > 0 || isAdmin) && (
             <div className="rounded-[32px] border border-outline-variant/20 bg-white p-6 shadow-card space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Versiones</span>
                 {isAdmin && (
-                  <button
-                    onClick={() => setShowAddVersion(true)}
-                    className="text-primary hover:scale-110 transition-transform"
-                  >
+                  <button onClick={() => setShowAddVersion(true)} className="text-primary hover:scale-110 transition-transform">
                     <Plus className="h-4 w-4" />
                   </button>
                 )}
@@ -549,7 +664,6 @@ export function SongDetailClient({
             </div>
           )}
 
-          {/* Director Notes */}
           {localSong.notes && (
             <div className="rounded-[32px] border border-outline-variant/20 bg-white p-6 shadow-card space-y-4">
               <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Notas del Director</span>
@@ -563,31 +677,13 @@ export function SongDetailClient({
         </aside>
       </div>
 
-      {/* Modals ───────────────────────────────────────────────────────────────── */}
-
-      {/* Add Part Modal */}
       <Modal open={showAddPart} onClose={() => setShowAddPart(false)} title="Añadir parte">
         <div className="space-y-5">
-          <Input
-            label="Nombre"
-            placeholder="Ej: Verso 1, Coro, Puente..."
-            value={newPartName}
-            onChange={(e) => setNewPartName(e.target.value)}
-          />
+          <Input label="Nombre" placeholder="Ej: Verso 1, Coro, Puente..." value={newPartName} onChange={(e) => setNewPartName(e.target.value)} />
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest ml-1">
-              Contenido (Cifrado)
-            </label>
-            <textarea
-              value={newPartContent}
-              onChange={(e) => setNewPartContent(e.target.value)}
-              placeholder="[La]Cantaré de Tu bondad&#10;[Mi]Esperaré en Ti"
-              rows={10}
-              className="w-full rounded-2xl border border-outline-variant/20 bg-surface-container/20 px-4 py-3 font-mono text-sm text-on-surface placeholder-on-surface-variant/40 focus:border-primary/40 focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all"
-            />
-            <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-wider ml-1">
-              Usa corchetes para acordes: [La]
-            </p>
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest ml-1">Contenido (Cifrado)</label>
+            <textarea value={newPartContent} onChange={(e) => setNewPartContent(e.target.value)} placeholder="[La]Cantaré de Tu bondad&#10;[Mi]Esperaré en Ti" rows={10} className="w-full rounded-2xl border border-outline-variant/20 bg-surface-container/20 px-4 py-3 font-mono text-sm text-on-surface placeholder-on-surface-variant/40 focus:border-primary/40 focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all" />
+            <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-wider ml-1">Usa corchetes para acordes: [La]</p>
           </div>
           <div className="flex gap-4 pt-4">
             <Button variant="ghost" className="flex-1 rounded-xl" onClick={() => setShowAddPart(false)}>Cancelar</Button>
@@ -598,40 +694,26 @@ export function SongDetailClient({
         </div>
       </Modal>
 
-      {/* Edit Part Modal */}
       <Modal open={showEditPart} onClose={() => setShowEditPart(false)} title="Editar parte">
         <div className="space-y-5">
           <Input label="Nombre" value={editPartName} onChange={(e) => setEditPartName(e.target.value)} />
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest ml-1">Contenido</label>
-            <textarea
-              value={editPartContent}
-              onChange={(e) => setEditPartContent(e.target.value)}
-              rows={10}
-              className="w-full rounded-2xl border border-outline-variant/20 bg-surface-container/20 px-4 py-3 font-mono text-sm text-on-surface focus:border-primary/40 focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all"
-            />
+            <textarea value={editPartContent} onChange={(e) => setEditPartContent(e.target.value)} rows={10} className="w-full rounded-2xl border border-outline-variant/20 bg-surface-container/20 px-4 py-3 font-mono text-sm text-on-surface focus:border-primary/40 focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all" />
           </div>
           <div className="flex gap-4 pt-4">
             <Button variant="ghost" className="flex-1 rounded-xl" onClick={() => setShowEditPart(false)}>Cancelar</Button>
-            <Button className="flex-1 rounded-xl" onClick={handleEditPart} disabled={loading || !editPartName.trim()}>
-              Guardar
-            </Button>
+            <Button className="flex-1 rounded-xl" onClick={handleEditPart} disabled={loading || !editPartName.trim()}>Guardar</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Edit Song Modal */}
       <Modal open={showEditSong} onClose={() => setShowEditSong(false)} title="Editar canción">
         <div className="space-y-5 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
           <Input label="Título" value={editSongData.title} onChange={(e) => setEditSongData({ ...editSongData, title: e.target.value })} />
           <Input label="Artista" value={editSongData.artist} onChange={(e) => setEditSongData({ ...editSongData, artist: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Tonalidad"
-              value={editSongData.original_key}
-              onChange={(e) => setEditSongData({ ...editSongData, original_key: e.target.value })}
-              options={SPANISH_KEYS.map((k) => ({ value: k, label: k }))}
-            />
+            <Select label="Tonalidad" value={editSongData.original_key} onChange={(e) => setEditSongData({ ...editSongData, original_key: e.target.value })} options={SPANISH_KEYS.map((k) => ({ value: k, label: k }))} />
             <Input label="Tempo (BPM)" type="number" value={editSongData.tempo} onChange={(e) => setEditSongData({ ...editSongData, tempo: e.target.value })} />
           </div>
           <Input label="Etiquetas (coma)" value={editSongData.tags} onChange={(e) => setEditSongData({ ...editSongData, tags: e.target.value })} />
@@ -645,7 +727,6 @@ export function SongDetailClient({
         </div>
       </Modal>
 
-      {/* Delete Confirm Modal */}
       <Modal open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Eliminar canción">
         <div className="space-y-6 text-center">
           <div className="mx-auto w-20 h-20 rounded-3xl bg-destructive/10 flex items-center justify-center text-destructive mb-4">
@@ -659,20 +740,30 @@ export function SongDetailClient({
           </div>
           <div className="flex gap-4 pt-4">
             <Button variant="ghost" className="flex-1 rounded-xl" onClick={() => setShowDeleteConfirm(false)}>Cancelar</Button>
-            <Button variant="destructive" className="flex-1 rounded-xl shadow-destructive-glow" onClick={handleDeleteSong} disabled={loading}>
-              Eliminar
-            </Button>
+            <Button variant="destructive" className="flex-1 rounded-xl shadow-destructive-glow" onClick={handleDeleteSong} disabled={loading}>Eliminar</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Add Version Modal */}
       <Modal open={showAddVersion} onClose={() => setShowAddVersion(false)} title="Nueva versión">
         <div className="space-y-5">
           <Input label="Nombre de la versión" placeholder="Ej: Versión Acústica, Remix..." value={newVersionName} onChange={(e) => setNewVersionName(e.target.value)} />
           <div className="flex gap-4 pt-4">
             <Button variant="ghost" className="flex-1 rounded-xl" onClick={() => setShowAddVersion(false)}>Cancelar</Button>
             <Button className="flex-1 rounded-xl" onClick={handleAddVersion} disabled={loading || !newVersionName.trim()}>Añadir</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showSaveAsVersion} onClose={() => setShowSaveAsVersion(false)} title="Guardar como nueva versión">
+        <div className="space-y-5">
+          <p className="text-sm text-on-surface-variant">
+            Esto copiará el orden actual de las partes a una nueva versión. La versión original no se modifica.
+          </p>
+          <Input label="Nombre de la versión" placeholder="Ej: Versión para domingo..." value={saveVersionName} onChange={(e) => setSaveVersionName(e.target.value)} />
+          <div className="flex gap-4 pt-4">
+            <Button variant="ghost" className="flex-1 rounded-xl" onClick={() => setShowSaveAsVersion(false)}>Cancelar</Button>
+            <Button className="flex-1 rounded-xl" onClick={handleSaveAsVersion} disabled={loading || !saveVersionName.trim()}>Guardar</Button>
           </div>
         </div>
       </Modal>

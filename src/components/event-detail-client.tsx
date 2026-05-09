@@ -108,6 +108,14 @@ interface Bosquejo {
   email_enviado_at: string | null;
 }
 
+interface Attendance {
+  id: string;
+  event_id: string;
+  profile_id: string;
+  status: "confirmed" | "declined" | "pending";
+  notes: string | null;
+}
+
 interface Props {
   event: EventData;
   eventSongs: EventSong[];
@@ -118,6 +126,8 @@ interface Props {
   isLeader: boolean;
   allSongs: Pick<Song, "id" | "title" | "artist" | "original_key">[];
   allProfiles: Pick<Profile, "id" | "full_name" | "role" | "instrument">[];
+  currentUserId: string;
+  myAttendance: Attendance | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -196,6 +206,8 @@ export function EventDetailClient({
   isLeader,
   allSongs,
   allProfiles,
+  currentUserId,
+  myAttendance: initialMyAttendance,
 }: Props) {
   const router = useRouter();
   const canManageEvent = isAdmin || isLeader;
@@ -229,6 +241,13 @@ export function EventDetailClient({
     notas_adicionales: bosquejoData?.notas_adicionales ?? "",
   });
   const [sendingBosquejoEmail, setSendingBosquejoEmail] = useState(false);
+
+  // Attendance
+  const [myAttendance, setMyAttendance] = useState<Attendance | null>(initialMyAttendance);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+
+  // Find current user's team entry for self-RSVP
+  const myTeamEntry = team.find((m) => m.profile_id === currentUserId) ?? null;
 
   // Add song modal state
   const [songSearch, setSongSearch] = useState("");
@@ -457,6 +476,43 @@ export function EventDetailClient({
     }
   }
 
+  async function handleMyRsvp(newStatus: "confirmed" | "declined") {
+    if (myTeamEntry) {
+      // Update event_team status
+      setAttendanceLoading(true);
+      try {
+        const res = await fetch(`/api/events/${event.id}/team`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventTeamId: myTeamEntry.id, status: newStatus }),
+        });
+        if (res.ok) {
+          setTeam((prev) =>
+            prev.map((m) => m.id === myTeamEntry.id ? { ...m, status: newStatus } : m)
+          );
+        }
+      } finally {
+        setAttendanceLoading(false);
+      }
+    } else {
+      // Upsert event_attendance
+      setAttendanceLoading(true);
+      try {
+        const res = await fetch(`/api/events/${event.id}/attendance`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as Attendance;
+          setMyAttendance(data);
+        }
+      } finally {
+        setAttendanceLoading(false);
+      }
+    }
+  }
+
   async function handleDeleteConfirm() {
     if (!showDeleteConfirm) return;
     if (showDeleteConfirm.type === "event") {
@@ -602,6 +658,53 @@ export function EventDetailClient({
           </Button>
         </Link>
       </div>
+
+      {/* My Attendance / RSVP */}
+      {(() => {
+        const myStatus = myTeamEntry?.status ?? myAttendance?.status ?? null;
+        const isInTeam = !!myTeamEntry;
+
+        return (
+          <div className="rounded-[24px] border border-outline-variant/20 bg-white p-5 shadow-card flex items-center justify-between gap-4">
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-on-surface">Mi asistencia</span>
+              <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mt-0.5">
+                {isInTeam
+                  ? `Asignado como ${ROLE_TYPE_LABELS[myTeamEntry.role_type] ?? myTeamEntry.role_type}`
+                  : "Confirma tu presencia"}
+              </span>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => handleMyRsvp("confirmed")}
+                disabled={attendanceLoading || myStatus === "confirmed"}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold border transition-all",
+                  myStatus === "confirmed"
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                    : "bg-surface-container border-outline-variant/20 text-on-surface-variant hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 disabled:opacity-50"
+                )}
+              >
+                <ChevronDown className="h-3.5 w-3.5 rotate-[-90deg]" />
+                {myStatus === "confirmed" ? "Confirmado" : "Confirmar"}
+              </button>
+              <button
+                onClick={() => handleMyRsvp("declined")}
+                disabled={attendanceLoading || myStatus === "declined"}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold border transition-all",
+                  myStatus === "declined"
+                    ? "bg-destructive/10 border-destructive/30 text-destructive"
+                    : "bg-surface-container border-outline-variant/20 text-on-surface-variant hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive disabled:opacity-50"
+                )}
+              >
+                <ChevronDown className="h-3.5 w-3.5 rotate-90" />
+                {myStatus === "declined" ? "Declinado" : "Declinar"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Setlist Section */}
       <section className="space-y-4">

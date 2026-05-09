@@ -81,6 +81,14 @@ export default async function EventDetailPage({
     .eq("is_active", true)
     .order("full_name");
 
+  // Fetch current user's attendance record
+  const { data: myAttendance } = await supabase
+    .from("event_attendance")
+    .select("*")
+    .eq("event_id", id)
+    .eq("profile_id", userId)
+    .single();
+
   return (
     <EventDetailClient
       event={event}
@@ -92,6 +100,8 @@ export default async function EventDetailPage({
       isLeader={isLeader}
       allSongs={allSongs || []}
       allProfiles={allProfiles || []}
+      currentUserId={userId}
+      myAttendance={myAttendance || null}
     />
   );
 }

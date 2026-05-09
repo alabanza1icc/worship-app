@@ -26,20 +26,14 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { name, base_key } = body;
-
-    const { data: song } = await supabase
-      .from("songs")
-      .select("original_key")
-      .eq("id", songId)
-      .single();
+    const { name, copyFromVersionId } = body;
 
     const { data: version, error: versionError } = await supabase
       .from("song_versions")
       .insert({
         song_id: songId,
         name,
-        base_key: base_key || song?.original_key || null,
+        is_default: false,
       })
       .select()
       .single();
@@ -48,21 +42,24 @@ export async function POST(
       return NextResponse.json({ error: versionError.message }, { status: 500 });
     }
 
-    const { data: parts } = await supabase
-      .from("song_parts")
-      .select("*")
-      .eq("song_id", songId)
-      .order("order_index");
+    if (copyFromVersionId) {
+      const { data: sourceParts } = await supabase
+        .from("song_parts")
+        .select("*")
+        .eq("version_id", copyFromVersionId)
+        .order("order_index");
 
-    if (parts && parts.length > 0) {
-      const versionParts = parts.map((part) => ({
-        version_id: version.id,
-        name: part.name,
-        content: part.content,
-        order_index: part.order_index,
-      }));
+      if (sourceParts && sourceParts.length > 0) {
+        const versionParts = sourceParts.map((part: { name: string; content: string; order_index: number }) => ({
+          song_id: songId,
+          version_id: version.id,
+          name: part.name,
+          content: part.content,
+          order_index: part.order_index,
+        }));
 
-      await supabase.from("song_version_parts").insert(versionParts);
+        await supabase.from("song_parts").insert(versionParts);
+      }
     }
 
     return NextResponse.json(version, { status: 201 });
@@ -87,10 +84,7 @@ export async function GET(
 
     const { data: versions, error } = await supabase
       .from("song_versions")
-      .select(`
-        *,
-        song_version_parts(*)
-      `)
+      .select("*")
       .eq("song_id", songId)
       .order("created_at");
 
@@ -98,7 +92,7 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(versions);
+    return NextResponse.json(versions || []);
   } catch (error) {
     console.error("Error fetching song versions:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
