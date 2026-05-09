@@ -18,10 +18,9 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  X,
   Send,
   Scroll,
-  MoreVertical,
+  FileText,
 } from "lucide-react";
 import { Button, Input, Textarea, Select, Card, Badge, Modal } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -832,6 +831,122 @@ export function EventDetailClient({
           </div>
         )}
       </section>
+
+      {/* Bosquejo Section */}
+      {(canManageEvent) && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-xl font-bold tracking-tight text-on-surface font-headline flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Bosquejo
+            </h3>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                if (bosquejoData) {
+                  setBosquejoForm({
+                    q1_respuesta: bosquejoData.q1_respuesta,
+                    q2_respuesta: bosquejoData.q2_respuesta,
+                    notas_adicionales: bosquejoData.notas_adicionales ?? "",
+                  });
+                }
+                setShowBosquejoForm(true);
+              }}
+              className="rounded-xl text-primary font-bold"
+            >
+              {bosquejoData ? <Edit className="mr-1.5 h-4 w-4" /> : <Plus className="mr-1.5 h-4 w-4" />}
+              {bosquejoData ? "Editar" : "Crear"}
+            </Button>
+          </div>
+
+          {!bosquejoData ? (
+            <div className="rounded-[32px] border border-outline-variant/20 bg-white p-12 text-center shadow-card">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-container text-on-surface-variant/20">
+                <FileText className="h-8 w-8" />
+              </div>
+              <p className="text-sm font-bold text-on-surface-variant">No hay bosquejo para este evento</p>
+            </div>
+          ) : (
+            <div className="rounded-[32px] border border-outline-variant/20 bg-white p-8 shadow-card space-y-6">
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">¿Cuál es el tema central?</p>
+                <div className="p-4 rounded-2xl bg-surface-container/30 border border-outline-variant/10 text-on-surface text-sm leading-relaxed whitespace-pre-wrap">
+                  {bosquejoData.q1_respuesta}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">¿Cómo fluye el servicio?</p>
+                <div className="p-4 rounded-2xl bg-surface-container/30 border border-outline-variant/10 text-on-surface text-sm leading-relaxed whitespace-pre-wrap">
+                  {bosquejoData.q2_respuesta}
+                </div>
+              </div>
+              {bosquejoData.notas_adicionales && (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Notas adicionales</p>
+                  <div className="p-4 rounded-2xl bg-surface-container/30 border border-outline-variant/10 text-on-surface-variant text-sm leading-relaxed whitespace-pre-wrap italic">
+                    {bosquejoData.notas_adicionales}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-2 border-t border-outline-variant/10">
+                {bosquejoData.email_enviado ? (
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+                    <Send className="h-3.5 w-3.5" />
+                    Email enviado al equipo
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-on-surface-variant">No enviado todavía</span>
+                )}
+                <Button
+                  size="sm"
+                  variant={bosquejoData.email_enviado ? "ghost" : "default"}
+                  onClick={handleSendBosquejoEmail}
+                  disabled={sendingBosquejoEmail}
+                  className="rounded-xl"
+                >
+                  <Send className="h-4 w-4 mr-1.5" />
+                  {sendingBosquejoEmail ? "Enviando..." : bosquejoData.email_enviado ? "Reenviar" : "Enviar al equipo"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Bosquejo Form Modal */}
+      <Modal open={showBosquejoForm} onClose={() => setShowBosquejoForm(false)} title={bosquejoData ? "Editar Bosquejo" : "Crear Bosquejo"}>
+        <form onSubmit={handleBosquejoSubmit} className="space-y-5">
+          <Textarea
+            label="¿Cuál es el tema central del servicio?"
+            placeholder="Describe el tema principal..."
+            value={bosquejoForm.q1_respuesta}
+            onChange={(e) => setBosquejoForm({ ...bosquejoForm, q1_respuesta: e.target.value })}
+            className="min-h-[100px]"
+            required
+          />
+          <Textarea
+            label="¿Cómo fluye el servicio? (estructura)"
+            placeholder="Ej: Alabanza → Predicación → Respuesta..."
+            value={bosquejoForm.q2_respuesta}
+            onChange={(e) => setBosquejoForm({ ...bosquejoForm, q2_respuesta: e.target.value })}
+            className="min-h-[100px]"
+            required
+          />
+          <Textarea
+            label="Notas adicionales (opcional)"
+            placeholder="Cualquier indicación extra para el equipo..."
+            value={bosquejoForm.notas_adicionales}
+            onChange={(e) => setBosquejoForm({ ...bosquejoForm, notas_adicionales: e.target.value })}
+          />
+          <div className="flex gap-4 pt-4">
+            <Button type="button" variant="ghost" className="flex-1 rounded-xl" onClick={() => setShowBosquejoForm(false)}>Cancelar</Button>
+            <Button type="submit" className="flex-1 rounded-xl" disabled={loading}>
+              {loading ? "Guardando..." : "Guardar"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Modals ───────────────────────────────────────────────────────────────── */}
 

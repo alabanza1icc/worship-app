@@ -25,7 +25,7 @@ export function Button({
         variant === "ghost" &&
           "rounded-2xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface",
         variant === "destructive" &&
-          "rounded-2xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15",
+          "rounded-2xl bg-destructive text-white shadow-destructive-glow hover:bg-destructive/90 hover:shadow-lg hover:-translate-y-0.5",
         size === "sm" && "h-8 gap-1.5 px-3.5 text-xs",
         size === "md" && "h-11 gap-2 px-5 text-sm",
         size === "lg" && "h-14 gap-2.5 px-7 text-base",

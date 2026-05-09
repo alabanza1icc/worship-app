@@ -98,16 +98,16 @@ export async function DELETE(
     }
 
     const searchParams = req.nextUrl.searchParams;
-    const memberId = searchParams.get("memberId");
+    const eventTeamId = searchParams.get("eventTeamId") || searchParams.get("memberId");
 
-    if (!memberId) {
-      return NextResponse.json({ error: "Missing memberId" }, { status: 400 });
+    if (!eventTeamId) {
+      return NextResponse.json({ error: "Missing eventTeamId" }, { status: 400 });
     }
 
     const { error } = await supabase
       .from("event_team")
       .delete()
-      .eq("id", memberId);
+      .eq("id", eventTeamId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

@@ -116,11 +116,11 @@ export default function HomePage() {
               <div className="relative rounded-[32px] border border-white/40 bg-glass p-2 shadow-card-md">
                 <div className="rounded-[24px] overflow-hidden border border-outline-variant/10 shadow-2xl">
                   <Image 
-                    src="/worship_app_dashboard_mockup_1778279927583.png" 
+                    src="/images/landing/dashboard.png" 
                     alt="Dashboard Preview" 
                     width={800} 
                     height={600}
-                    className="w-full h-auto"
+                    className="w-full h-auto object-cover"
                   />
                 </div>
                 {/* Floating elements */}
@@ -209,18 +209,14 @@ export default function HomePage() {
             <div className="order-2 lg:order-1 relative">
               <div className="absolute -inset-4 bg-primary/30 rounded-[40px] blur-3xl opacity-20" />
               <div className="relative rounded-[32px] border border-outline-variant/20 bg-white p-4 shadow-2xl overflow-hidden">
-                <div className="bg-on-surface rounded-[20px] aspect-video flex items-center justify-center relative overflow-hidden p-8 group">
-                  <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="text-center space-y-4">
-                    <h4 className="text-white font-mono text-2xl lg:text-3xl font-bold leading-relaxed">
-                      [La] Cantaré de Tu <span className="text-primary">bondad</span><br/>
-                      [Mi] Esperaré en Ti
-                    </h4>
-                    <div className="flex justify-center gap-2 pt-8">
-                      <div className="px-3 py-1.5 rounded-lg bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-widest border border-white/5">-1</div>
-                      <div className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-primary-glow">+2</div>
-                    </div>
-                  </div>
+                <div className="rounded-[20px] overflow-hidden border border-outline-variant/10 shadow-lg">
+                  <Image 
+                    src="/images/landing/live-mode.png" 
+                    alt="Live Mode Preview" 
+                    width={800} 
+                    height={450}
+                    className="w-full h-auto"
+                  />
                 </div>
               </div>
             </div>
@@ -297,26 +293,26 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="relative">
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { name: "Dirección", role: "Voz Principal", img: "11" },
-                    { name: "Instrumentos", role: "Piano / Guitarras", img: "12" },
-                    { name: "Multimedia", role: "Proyección de Letras", img: "13" },
-                    { name: "Danza", role: "Coreografía", img: "14" }
-                  ].map((member, i) => (
-                    <div key={i} className={cn(
-                      "p-6 rounded-[32px] bg-white shadow-card border border-outline-variant/10 flex flex-col items-center text-center space-y-3",
-                      i % 2 === 1 ? "translate-y-8" : ""
-                    )}>
-                      <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md">
-                        <Image src={`https://i.pravatar.cc/150?img=${member.img}`} alt={member.name} width={64} height={64} />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-on-surface">{member.name}</div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-primary">{member.role}</div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="rounded-[32px] border border-outline-variant/20 bg-white p-2 shadow-2xl overflow-hidden transform rotate-2">
+                  <div className="rounded-[24px] overflow-hidden border border-outline-variant/10 shadow-lg">
+                    <Image 
+                      src="/images/landing/team.png" 
+                      alt="Team Directory Preview" 
+                      width={600} 
+                      height={400}
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </div>
+                {/* Secondary image for depth */}
+                <div className="absolute -top-12 -right-8 w-48 h-48 rounded-[24px] border border-outline-variant/20 bg-white p-1 shadow-xl hidden lg:block transform -rotate-3 overflow-hidden">
+                   <Image 
+                    src="/images/landing/event-details.png" 
+                    alt="Event Detail Preview" 
+                    width={300} 
+                    height={300}
+                    className="w-full h-full object-cover rounded-[20px]"
+                  />
                 </div>
               </div>
             </div>

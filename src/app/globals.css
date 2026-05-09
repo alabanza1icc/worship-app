@@ -9,6 +9,10 @@
   --color-on-surface-variant: hsl(225 15% 45%);
   --color-outline-variant: hsl(230 31% 86%);
   
+  --color-primary-container: hsl(221 83% 96%);
+  --color-secondary-container: hsl(262 83% 96%);
+  --color-destructive-container: hsl(0 84% 96%);
+  
   --font-headline: "Lexend", sans-serif;
   --font-body: "Inter", sans-serif;
   
@@ -26,14 +30,17 @@
   --popover-foreground: 225 37% 10%;
   --primary: 221 83% 53%;
   --primary-foreground: 0 0% 100%;
+  --primary-container: 221 83% 96%;
   --secondary: 262 83% 58%;
   --secondary-foreground: 0 0% 100%;
+  --secondary-container: 262 83% 96%;
   --muted: 225 20% 94%;
   --muted-foreground: 225 15% 45%;
   --accent: 221 83% 53%;
-  --accent-foreground: 221 83% 53%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
+  --destructive-container: 0 84% 96%;
   --border: 230 31% 86%;
   --input: 230 31% 86%;
   --ring: 221 83% 53%;

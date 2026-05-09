@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
         youtube_url,
         status: "active",
         has_audio: false,
+        created_by: userId,
       })
       .select()
       .single();
