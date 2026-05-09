@@ -1,17 +1,38 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface-dim: hsl(225 30% 96%);
-  --color-surface-container: hsl(225 25% 95%);
-  --color-surface-container-low: hsl(225 20% 97%);
-  --color-surface-container-high: hsl(225 25% 93%);
-  --color-on-surface: hsl(225 37% 10%);
-  --color-on-surface-variant: hsl(225 15% 45%);
-  --color-outline-variant: hsl(230 31% 86%);
+  --color-surface-dim: #f1f5f9;
+  --color-surface-container: #f8fafc;
+  --color-surface-container-low: #ffffff;
+  --color-surface-container-high: #f1f5f9;
   
-  --color-primary-container: hsl(221 83% 96%);
-  --color-secondary-container: hsl(262 83% 96%);
-  --color-destructive-container: hsl(0 84% 96%);
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-primary-container: #eff6ff;
+  
+  --color-secondary: #7c3aed;
+  --color-secondary-foreground: #ffffff;
+  --color-secondary-container: #f5f3ff;
+  
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-destructive-container: #fef2f2;
+  
+  --color-accent: #2563eb;
+  --color-accent-foreground: #ffffff;
+  
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #2563eb;
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #64748b;
+  --color-outline-variant: #e2e8f0;
   
   --font-headline: "Lexend", sans-serif;
   --font-body: "Inter", sans-serif;
