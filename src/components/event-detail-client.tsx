@@ -20,7 +20,6 @@ import {
   FileText,
   Send,
   Scroll,
-  FileText,
 } from "lucide-react";
 import { Button, Input, Textarea, Select, Card, Badge, Modal } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -900,7 +899,7 @@ export function EventDetailClient({
                 )}
                 <Button
                   size="sm"
-                  variant={bosquejoData.email_enviado ? "ghost" : "default"}
+                  variant={bosquejoData.email_enviado ? "ghost" : "primary"}
                   onClick={handleSendBosquejoEmail}
                   disabled={sendingBosquejoEmail}
                   className="rounded-xl"

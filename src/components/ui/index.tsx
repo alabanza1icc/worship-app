@@ -17,19 +17,19 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center font-semibold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.96]",
+        "inline-flex cursor-pointer items-center justify-center font-headline uppercase tracking-widest transition-all duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.96]",
         variant === "primary" &&
-          "rounded-2xl bg-primary text-white shadow-primary-glow hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5",
+          "rounded-2xl bg-primary text-white shadow-primary-glow hover:bg-primary/90 hover:shadow-xl hover:-translate-y-0.5",
         variant === "secondary" &&
-          "rounded-2xl border border-outline-variant/30 bg-white text-on-surface hover:border-primary/30 hover:bg-surface-container",
+          "rounded-2xl border border-outline-variant/30 bg-white/70 backdrop-blur-md text-on-surface hover:border-primary/30 hover:bg-surface-container/80 shadow-sm hover:shadow-md",
         variant === "ghost" &&
-          "rounded-2xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface",
+          "rounded-2xl text-on-surface-variant hover:bg-surface-container/50 hover:text-on-surface transition-colors",
         variant === "destructive" &&
-          "rounded-2xl bg-destructive text-white shadow-destructive-glow hover:bg-destructive/90 hover:shadow-lg hover:-translate-y-0.5",
-        size === "sm" && "h-8 gap-1.5 px-3.5 text-xs",
-        size === "md" && "h-11 gap-2 px-5 text-sm",
-        size === "lg" && "h-14 gap-2.5 px-7 text-base",
-        size === "icon" && "h-11 w-11 rounded-2xl",
+          "rounded-2xl bg-destructive text-white shadow-destructive-glow hover:bg-destructive/90 hover:shadow-xl hover:-translate-y-0.5",
+        size === "sm" && "h-9 gap-1.5 px-4 text-[10px] font-black",
+        size === "md" && "h-12 gap-2 px-6 text-xs font-black",
+        size === "lg" && "h-15 gap-2.5 px-8 text-sm font-black",
+        size === "icon" && "h-12 w-12 rounded-2xl",
         className
       )}
       {...props}
@@ -133,7 +133,7 @@ export function Card({ className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-3xl border border-outline-variant/20 bg-white p-6 shadow-card transition-all duration-300",
+        "rounded-3xl border border-outline-variant/20 bg-white/70 backdrop-blur-md p-6 shadow-card transition-all duration-300",
         className
       )}
       {...props}
@@ -149,12 +149,12 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider",
-        variant === "default" && "bg-primary-container/40 text-primary border border-primary/10",
-        variant === "outline" && "border border-outline-variant/40 bg-white text-on-surface-variant",
-        variant === "success" && "bg-emerald-50 text-emerald-700 border border-emerald-100",
-        variant === "warning" && "bg-amber-50 text-amber-700 border border-amber-100",
-        variant === "danger" && "bg-destructive/10 text-destructive border border-destructive/10",
+        "inline-flex items-center rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest",
+        variant === "default" && "bg-primary/10 text-primary border border-primary/20",
+        variant === "outline" && "border border-outline-variant/50 bg-white/50 backdrop-blur-sm text-on-surface-variant",
+        variant === "success" && "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
+        variant === "warning" && "bg-amber-500/10 text-amber-700 border border-amber-500/20",
+        variant === "danger" && "bg-destructive/10 text-destructive border border-destructive/20",
         className
       )}
       {...props}

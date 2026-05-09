@@ -18,7 +18,9 @@
   
   --shadow-card: 0 1px 4px rgba(15, 19, 34, 0.06), 0 4px 16px rgba(15, 19, 34, 0.06);
   --shadow-card-md: 0 2px 8px rgba(15, 19, 34, 0.08), 0 8px 24px rgba(15, 19, 34, 0.08);
-  --shadow-primary-glow: 0 2px 12px rgba(37, 99, 235, 0.22);
+  --shadow-primary-glow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  --shadow-secondary-glow: 0 4px 14px rgba(139, 92, 246, 0.3);
+  --shadow-destructive-glow: 0 4px 14px rgba(239, 68, 68, 0.3);
 }
 
 :root {
