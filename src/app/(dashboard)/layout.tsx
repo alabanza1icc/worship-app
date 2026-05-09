@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Music, Users, CalendarDays, Home } from "lucide-react";
+import { Calendar, Music, Users, CalendarDays, Home, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -8,11 +8,10 @@ import { cn } from "@/lib/utils";
 import { NotificationsBell } from "@/components/notifications-bell";
 
 const navItems = [
-  { href: "/dashboard", icon: Home, label: "Inicio" },
-  { href: "/events", icon: CalendarDays, label: "Eventos" },
-  { href: "/songs", icon: Music, label: "Canciones" },
-  { href: "/calendar", icon: Calendar, label: "Calendario" },
-  { href: "/team", icon: Users, label: "Equipo" },
+  { href: "/dashboard", icon: Home, label: "Home" },
+  { href: "/events", icon: CalendarDays, label: "Events" },
+  { href: "/songs", icon: Music, label: "Library" },
+  { href: "/team", icon: Users, label: "Team" },
 ];
 
 export default function DashboardLayout({
@@ -34,19 +33,23 @@ export default function DashboardLayout({
       </div>
 
       {/* Header */}
-      <header className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/20 bg-white/80 px-6 shadow-sm backdrop-blur-xl">
+      <header className="fixed left-0 right-0 top-0 z-50 flex h-20 items-center justify-between border-b border-outline-variant/10 bg-white/60 px-6 backdrop-blur-2xl">
+        <button className="p-2 rounded-xl hover:bg-surface-container transition-colors text-on-surface-variant">
+          <Menu className="h-6 w-6" />
+        </button>
+
         <Link
           href="/dashboard"
-          className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-xl font-bold tracking-tight text-transparent font-headline"
+          className="text-xl font-black tracking-tight text-on-surface font-headline"
         >
-          WorshipApp
+          Worship<span className="text-primary">App</span>
         </Link>
-        <div className="flex items-center gap-4">
-          <NotificationsBell />
+
+        <div className="flex items-center gap-2">
           <UserButton
             appearance={{
               elements: {
-                avatarBox: "h-9 w-9 rounded-2xl shadow-sm border border-outline-variant/30",
+                avatarBox: "h-10 w-10 rounded-2xl shadow-md border-2 border-white",
               },
             }}
           />
@@ -54,11 +57,11 @@ export default function DashboardLayout({
       </header>
 
       {/* Main Content */}
-      <main className="relative flex-1 pb-24 pt-16">{children}</main>
+      <main className="relative flex-1 pb-24 pt-20">{children}</main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-outline-variant/20 bg-white/90 shadow-[0_-8px_30px_rgba(15,19,34,0.06)] backdrop-blur-xl px-2">
-        <div className="flex justify-around items-center max-w-lg mx-auto h-[72px]">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-outline-variant/10 bg-white/80 shadow-[0_-8px_40px_rgba(0,0,0,0.05)] backdrop-blur-xl px-2">
+        <div className="flex justify-around items-center max-w-lg mx-auto h-[80px]">
           {navItems.map((item) => {
             const isActive =
               item.href === "/dashboard"
@@ -69,7 +72,7 @@ export default function DashboardLayout({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 px-4 py-2 rounded-2xl transition-all duration-300 relative group",
+                  "flex flex-col items-center gap-1.5 px-6 py-2 rounded-2xl transition-all duration-300 relative group",
                   isActive ? "text-primary" : "text-on-surface-variant hover:text-on-surface"
                 )}
               >
@@ -78,13 +81,13 @@ export default function DashboardLayout({
                 )}
                 <item.icon
                   className={cn(
-                    "h-5 w-5 transition-transform duration-300 group-active:scale-90",
+                    "h-6 w-6 transition-transform duration-300 group-active:scale-90",
                     isActive && "fill-primary/10"
                   )}
                 />
                 <span className={cn(
-                  "text-[10px] font-bold uppercase tracking-wider transition-all",
-                  isActive ? "opacity-100" : "opacity-60 group-hover:opacity-100"
+                  "text-[10px] font-black uppercase tracking-[0.15em] transition-all",
+                  isActive ? "opacity-100" : "opacity-40 group-hover:opacity-100"
                 )}>
                   {item.label}
                 </span>
