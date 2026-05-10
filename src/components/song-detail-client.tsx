@@ -201,7 +201,8 @@ export function SongDetailClient({
 
   const [localParts, setLocalParts] = useState<SongPart[]>(parts);
   const [localVersions, setLocalVersions] = useState<SongVersion[]>(versions);
-  const [localAudioTracks] = useState<AudioTrack[]>(audioTracks);
+  const [localAudioTracks, setLocalAudioTracks] = useState<AudioTrack[]>(audioTracks);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
   const [localSong, setLocalSong] = useState<Song>(song);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(defaultVersionId);
   const [transposition, setTransposition] = useState(0);
@@ -399,6 +400,25 @@ export function SongDetailClient({
     }
   };
 
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAudio(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("file_type", "multitrack");
+      const res = await fetch(`/api/songs/${song.id}/audio`, { method: "POST", body: formData });
+      if (res.ok) {
+        const newTrack: AudioTrack = await res.json();
+        setLocalAudioTracks((prev) => [...prev, newTrack]);
+      }
+    } finally {
+      setUploadingAudio(false);
+      e.target.value = "";
+    }
+  };
+
   const handleAddVersion = async () => {
     if (!newVersionName.trim()) return;
     setLoading(true);
@@ -515,24 +535,43 @@ export function SongDetailClient({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 space-y-8">
-          {localAudioTracks.length > 0 && (
+          {(localAudioTracks.length > 0 || isAdmin) && (
             <section className="space-y-4">
-              <h3 className="text-xl font-bold tracking-tight text-on-surface font-headline flex items-center gap-2">
-                <AudioLines className="h-5 w-5 text-primary" />
-                Audio
-              </h3>
-              <div className="space-y-4">
-                {localAudioTracks.map((track) => (
-                  <div key={track.id} className="rounded-2xl border border-outline-variant/10 bg-white p-4 shadow-sm">
-                    <div className="mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">
-                        {FILE_TYPE_LABELS[track.file_type]}
-                      </span>
-                    </div>
-                    <AudioPlayer src={track.file_url} title={track.file_name} />
-                  </div>
-                ))}
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-xl font-bold tracking-tight text-on-surface font-headline flex items-center gap-2">
+                  <AudioLines className="h-5 w-5 text-primary" />
+                  Audio
+                </h3>
+                {isAdmin && (
+                  <label className={cn(
+                    "cursor-pointer text-[11px] font-bold text-primary flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-primary/5 transition-colors",
+                    uploadingAudio && "opacity-50 pointer-events-none"
+                  )}>
+                    <Plus className="h-3.5 w-3.5" />
+                    {uploadingAudio ? "Subiendo..." : "Subir audio"}
+                    <input type="file" accept="audio/*" className="hidden" onChange={handleAudioUpload} disabled={uploadingAudio} />
+                  </label>
+                )}
               </div>
+              {localAudioTracks.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-outline-variant/30 p-8 text-center">
+                  <AudioLines className="h-8 w-8 text-on-surface-variant/20 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-on-surface-variant/40">No hay audios. Sube un multitrack para ensayar.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {localAudioTracks.map((track) => (
+                    <div key={track.id} className="rounded-2xl border border-outline-variant/10 bg-white p-4 shadow-sm">
+                      <div className="mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">
+                          {FILE_TYPE_LABELS[track.file_type]}
+                        </span>
+                      </div>
+                      <AudioPlayer src={track.file_url} title={track.file_name} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
@@ -542,12 +581,6 @@ export function SongDetailClient({
                 <Music2 className="h-5 w-5 text-primary" />
                 Cifrado
               </h3>
-              {isAdmin && (
-                <Button size="sm" variant="ghost" onClick={() => setShowAddPart(true)} className="rounded-xl text-primary font-bold">
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Añadir parte
-                </Button>
-              )}
             </div>
 
             {filteredParts.length === 0 ? (
@@ -556,31 +589,14 @@ export function SongDetailClient({
                   <Music2 className="h-8 w-8" />
                 </div>
                 <p className="text-sm font-bold text-on-surface-variant">No hay partes en esta versión</p>
+                {isAdmin && (
+                  <Button size="sm" variant="secondary" className="mt-4" onClick={() => setShowEditSong(true)}>
+                    Editar canción para añadir partes
+                  </Button>
+                )}
               </div>
             ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={filteredParts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-3" id="parts-container">
-                    {filteredParts.map((part) => (
-                      <div key={part.id} id={`part-${part.id}`}>
-                        <SortablePart
-                          part={part}
-                          isAdmin={isAdmin}
-                          onEdit={() => openEditPart(part)}
-                          onDelete={() => handleDeletePart(part.id)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-
-            {filteredParts.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-outline-variant/10 bg-surface p-6">
-                <h4 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">
-                  Vista Previa del Cifrado
-                </h4>
+              <div className="space-y-4">
                 <SongPartsDisplay parts={filteredParts} transposition={transposition} />
               </div>
             )}
@@ -611,6 +627,25 @@ export function SongDetailClient({
               </Button>
             )}
           </div>
+
+          {localSong.youtube_url && (() => {
+            const ytMatch = localSong.youtube_url.match(/(?:v=|youtu\.be\/)([^&\s]+)/);
+            const videoId = ytMatch?.[1];
+            return videoId ? (
+              <div className="rounded-[32px] border border-outline-variant/20 bg-white p-6 shadow-card space-y-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Video</span>
+                <div className="rounded-2xl overflow-hidden aspect-video">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${videoId}`}
+                    title="YouTube video"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                </div>
+              </div>
+            ) : null;
+          })()}
 
           {(localSong.spotify_url || localSong.youtube_url) && (
             <div className="rounded-[32px] border border-outline-variant/20 bg-white p-6 shadow-card space-y-4">
@@ -709,7 +744,7 @@ export function SongDetailClient({
       </Modal>
 
       <Modal open={showEditSong} onClose={() => setShowEditSong(false)} title="Editar canción">
-        <div className="space-y-5 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
+        <div className="space-y-5 max-h-[80vh] overflow-y-auto px-1 custom-scrollbar">
           <Input label="Título" value={editSongData.title} onChange={(e) => setEditSongData({ ...editSongData, title: e.target.value })} />
           <Input label="Artista" value={editSongData.artist} onChange={(e) => setEditSongData({ ...editSongData, artist: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
@@ -718,11 +753,41 @@ export function SongDetailClient({
           </div>
           <Input label="Etiquetas (coma)" value={editSongData.tags} onChange={(e) => setEditSongData({ ...editSongData, tags: e.target.value })} />
           <Textarea label="Notas" value={editSongData.notes} onChange={(e) => setEditSongData({ ...editSongData, notes: e.target.value })} />
-          <Input label="Spotify" value={editSongData.spotify_url} onChange={(e) => setEditSongData({ ...editSongData, spotify_url: e.target.value })} />
-          <Input label="YouTube" value={editSongData.youtube_url} onChange={(e) => setEditSongData({ ...editSongData, youtube_url: e.target.value })} />
-          <div className="flex gap-4 pt-4">
+          <Input label="Spotify URL" value={editSongData.spotify_url} onChange={(e) => setEditSongData({ ...editSongData, spotify_url: e.target.value })} placeholder="https://open.spotify.com/track/..." />
+          <Input label="YouTube URL" value={editSongData.youtube_url} onChange={(e) => setEditSongData({ ...editSongData, youtube_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." />
+          <div className="flex gap-4 pt-2">
             <Button variant="ghost" className="flex-1 rounded-xl" onClick={() => setShowEditSong(false)}>Cancelar</Button>
             <Button className="flex-1 rounded-xl" onClick={handleEditSong} disabled={loading}>Guardar</Button>
+          </div>
+
+          {/* Parts Management */}
+          <div className="pt-4 border-t border-outline-variant/10">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-on-surface">Partes del cifrado</span>
+              <Button size="sm" variant="ghost" onClick={() => setShowAddPart(true)} className="rounded-xl text-primary font-bold">
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Añadir
+              </Button>
+            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={filteredParts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {filteredParts.length === 0 && (
+                    <p className="text-xs text-on-surface-variant italic text-center py-4">No hay partes. Añade la primera.</p>
+                  )}
+                  {filteredParts.map((part) => (
+                    <div key={part.id} id={`part-${part.id}`}>
+                      <SortablePart
+                        part={part}
+                        isAdmin={isAdmin}
+                        onEdit={() => openEditPart(part)}
+                        onDelete={() => handleDeletePart(part.id)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </div>
         </div>
       </Modal>
