@@ -127,13 +127,19 @@ export default async function DashboardPage() {
     }
   }
 
-  // Fetch real notifications
-  const { data: notifications } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("profile_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(5);
+  // Fetch next 4 upcoming events (1 for hero, 3 for slider)
+  const { data: upcomingEventsData } = await supabase
+    .from("events")
+    .select("id, title, event_type, event_date, start_time, location")
+    .gte("event_date", today)
+    .order("event_date", { ascending: true })
+    .limit(4);
+
+  const upcomingEvents = upcomingEventsData ?? [];
+  const heroEvent = nextEvent || (upcomingEvents.length > 0 ? { ...upcomingEvents[0], role_type: "", status: "pending", teamId: "" } : null);
+  const sliderEvents = nextEvent 
+    ? upcomingEvents.filter(e => e.id !== nextEvent.id).slice(0, 3)
+    : upcomingEvents.slice(1, 4);
 
   const getMonthAbbr = (dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
@@ -148,7 +154,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="px-4 py-8 space-y-10 max-w-4xl mx-auto pb-32">
+    <div className="px-4 py-8 space-y-12 max-w-4xl mx-auto pb-32">
       {/* Header */}
       <section>
         <h1 className="text-5xl font-black tracking-tight text-on-surface font-headline leading-tight">
@@ -165,9 +171,9 @@ export default async function DashboardPage() {
           <h2 className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/50">
             Próximo Servicio
           </h2>
-          {nextEvent && (
+          {heroEvent && (
             <Link
-              href={`/events/${nextEvent.id}`}
+              href={`/events/${heroEvent.id}`}
               className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 group"
             >
               Ver detalles
@@ -176,60 +182,64 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {nextEvent ? (
-          <Card className="p-0 overflow-hidden shadow-2xl border-outline-variant/20 relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
-            <div className="relative p-8 space-y-8">
-              <div className="flex justify-between items-start gap-4">
-                <h3 className="text-3xl lg:text-4xl font-black text-on-surface font-headline leading-tight">
-                  {nextEvent.title}
-                </h3>
-                <div className="flex flex-col items-center justify-center w-20 h-24 rounded-3xl bg-surface-container border border-outline-variant/20 shadow-sm shrink-0">
-                  <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">
-                    {getMonthAbbr(nextEvent.event_date)}
-                  </span>
-                  <span className="text-3xl font-black text-on-surface font-headline leading-none mt-1">
-                    {getDayNum(nextEvent.event_date)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {nextEvent.start_time && (
-                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container/50 border border-outline-variant/10 shadow-sm">
-                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
-                      <Clock className="h-5 w-5" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">Horario</span>
-                      <span className="text-sm font-bold text-on-surface">
-                        {nextEvent.start_time.slice(0, 5)} AM - 12:00 PM
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container/50 border border-outline-variant/10 shadow-sm">
-                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
-                    <Guitar className="h-5 w-5" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">Tu Función</span>
-                    <span className="text-sm font-bold text-on-surface">
-                      {nextEvent.role_type ? ROLE_TYPE_LABELS[nextEvent.role_type] ?? nextEvent.role_type : "Por asignar"}
+        {heroEvent ? (
+          <Link href={`/events/${heroEvent.id}`} className="block group">
+            <Card className="p-0 overflow-hidden shadow-2xl border-outline-variant/20 relative group-hover:border-primary/30 transition-all duration-500">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none group-hover:bg-primary/10 transition-all" />
+              <div className="relative p-8 space-y-8">
+                <div className="flex justify-between items-start gap-4">
+                  <h3 className="text-3xl lg:text-4xl font-black text-on-surface font-headline leading-tight group-hover:text-primary transition-colors">
+                    {heroEvent.title}
+                  </h3>
+                  <div className="flex flex-col items-center justify-center w-20 h-24 rounded-3xl bg-surface-container border border-outline-variant/20 shadow-sm shrink-0">
+                    <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">
+                      {getMonthAbbr(heroEvent.event_date)}
+                    </span>
+                    <span className="text-3xl font-black text-on-surface font-headline leading-none mt-1">
+                      {getDayNum(heroEvent.event_date)}
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {nextEvent.teamId && (
-                <DashboardAttendanceButtons
-                  eventId={nextEvent.id}
-                  eventTeamId={nextEvent.teamId}
-                  initialStatus={nextEvent.status as "confirmed" | "pending" | "declined"}
-                />
-              )}
-            </div>
-          </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {heroEvent.start_time && (
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container/50 border border-outline-variant/10 shadow-sm">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                        <Clock className="h-5 w-5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">Horario</span>
+                        <span className="text-sm font-bold text-on-surface">
+                          {heroEvent.start_time.slice(0, 5)} AM - 12:00 PM
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container/50 border border-outline-variant/10 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                      <Guitar className="h-5 w-5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">Tu Función</span>
+                      <span className="text-sm font-bold text-on-surface">
+                        {heroEvent.role_type ? ROLE_TYPE_LABELS[heroEvent.role_type] ?? heroEvent.role_type : "Por asignar"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {heroEvent.teamId && (
+                  <div onClick={(e) => e.preventDefault()}>
+                    <DashboardAttendanceButtons
+                      eventId={heroEvent.id}
+                      eventTeamId={heroEvent.teamId}
+                      initialStatus={heroEvent.status as "confirmed" | "pending" | "declined"}
+                    />
+                  </div>
+                )}
+              </div>
+            </Card>
+          </Link>
         ) : (
           <div className="rounded-[40px] border-2 border-dashed border-outline-variant/30 p-16 text-center bg-surface-container/20">
             <CalendarDays className="h-10 w-10 text-on-surface-variant/20 mx-auto mb-3" />
@@ -238,8 +248,53 @@ export default async function DashboardPage() {
         )}
       </section>
 
+      {/* Upcoming events slider */}
+      {sliderEvents.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/50">
+              Próximos Eventos
+            </h2>
+            <Link href="/events" className="text-[10px] font-black uppercase tracking-widest text-primary">
+              Ver todos
+            </Link>
+          </div>
+          
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+            {sliderEvents.map((event) => (
+              <Link key={event.id} href={`/events/${event.id}`} className="shrink-0 w-[280px] group">
+                <Card className="p-5 space-y-4 hover:border-primary/20 transition-all shadow-md bg-white/50 border-outline-variant/10">
+                  <div className="flex justify-between items-start">
+                    <div className="w-10 h-10 rounded-xl bg-surface-container border border-outline-variant/10 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-[7px] font-black text-on-surface-variant/50 uppercase leading-none">
+                        {getMonthAbbr(event.event_date)}
+                      </span>
+                      <span className="text-sm font-black text-on-surface leading-none mt-1">
+                        {getDayNum(event.event_date)}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-[8px] uppercase tracking-tighter">
+                      {event.event_type.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-on-surface truncate group-hover:text-primary transition-colors font-headline">
+                      {event.title}
+                    </h4>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/60">
+                      <Clock className="h-3 w-3" />
+                      {event.start_time?.slice(0, 5)} AM
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Notifications list */}
-      <section className="space-y-4">
+      <section className="space-y-6">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xs font-black uppercase tracking-[0.3em] text-on-surface-variant/50">
             Notificaciones

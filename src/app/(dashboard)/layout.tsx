@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Music, Users, CalendarDays, Home, Menu } from "lucide-react";
+import { Music, Users, CalendarDays, Home, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -45,7 +45,8 @@ export default function DashboardLayout({
           Worship<span className="text-primary">App</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <NotificationsBell />
           <UserButton
             appearance={{
               elements: {
@@ -57,7 +58,7 @@ export default function DashboardLayout({
       </header>
 
       {/* Main Content */}
-      <main className="relative flex-1 pb-24 pt-20">{children}</main>
+      <main className="relative flex-1 pb-28 pt-24">{children}</main>
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-outline-variant/10 bg-white/80 shadow-[0_-8px_40px_rgba(0,0,0,0.05)] backdrop-blur-xl px-2">
@@ -72,7 +73,7 @@ export default function DashboardLayout({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 px-6 py-2 rounded-2xl transition-all duration-300 relative group",
+                  "flex flex-col items-center gap-1.5 px-5 py-2 rounded-2xl transition-all duration-300 relative group",
                   isActive ? "text-primary" : "text-on-surface-variant hover:text-on-surface"
                 )}
               >
