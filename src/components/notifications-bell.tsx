@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bell } from "lucide-react";
+import { Bell, CalendarDays, Music, Users, Clock, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface Notification {
   id: string;
@@ -12,23 +15,12 @@ interface Notification {
   created_at: string;
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  event_invite: "📅",
-  song_update: "🎵",
-  team_change: "👥",
-  schedule_change: "🔔",
-  bosquejo: "📝",
+const NOTIF_CONFIG: Record<string, { icon: any; color: string }> = {
+  event_invite: { icon: CalendarDays, color: "bg-primary/10 text-primary" },
+  song_update: { icon: Music, color: "bg-blue-500/10 text-blue-600" },
+  team_change: { icon: Users, color: "bg-amber-500/10 text-amber-600" },
+  schedule_change: { icon: Clock, color: "bg-destructive/10 text-destructive" },
 };
-
-function formatRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Ahora";
-  if (mins < 60) return `Hace ${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `Hace ${hours}h`;
-  return `Hace ${Math.floor(hours / 24)}d`;
-}
 
 export function NotificationsBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -45,7 +37,12 @@ export function NotificationsBell() {
       setLoading(true);
       try {
         const res = await fetch("/api/notifications");
-        if (active && res.ok) setNotifications(await res.json());
+        if (active && res.ok) {
+          const data = await res.json();
+          setNotifications(data);
+        }
+      } catch (error) {
+        console.error("Failed to load notifications", error);
       } finally {
         if (active) setLoading(false);
       }
@@ -68,78 +65,122 @@ export function NotificationsBell() {
   }, []);
 
   const markAllRead = async () => {
-    await fetch("/api/notifications", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markAllRead: true }),
-    });
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error("Failed to mark all as read", error);
+    }
   };
 
   return (
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 hover:bg-white/80 hover:text-slate-950 transition-all duration-200 cursor-pointer"
+        className={cn(
+          "relative flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-300",
+          open 
+            ? "bg-primary text-white shadow-lg shadow-primary/20 scale-110" 
+            : "bg-surface-container text-on-surface-variant hover:bg-white hover:text-primary hover:shadow-md border border-outline-variant/10"
+        )}
         aria-label="Notificaciones"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className={cn("h-5 w-5", open ? "animate-pulse" : "")} />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white shadow-lg shadow-indigo-500/40">
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-black text-white border-2 border-white shadow-lg">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-            <span className="text-sm font-semibold tracking-tight text-slate-950">Notificaciones</span>
+        <div className="absolute right-0 top-full mt-3 z-50 w-[340px] overflow-hidden rounded-[32px] border border-outline-variant/20 bg-white/95 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center justify-between border-b border-outline-variant/10 px-6 py-5 bg-surface-container/30">
+            <h3 className="text-sm font-black uppercase tracking-widest text-on-surface-variant">Notificaciones</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/70 transition-colors"
               >
+                <Check className="h-3 w-3" />
                 Marcar todo leído
               </button>
             )}
           </div>
 
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[420px] overflow-y-auto scrollbar-hide">
             {loading ? (
-              <div className="flex items-center justify-center py-10">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
+              <div className="flex items-center justify-center py-16">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-outline-variant border-t-primary" />
               </div>
             ) : notifications.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-400">
-                Sin notificaciones
+              <div className="py-20 px-8 text-center space-y-3">
+                <div className="w-16 h-16 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-4 opacity-50">
+                  <Bell className="h-8 w-8 text-on-surface-variant/40" />
+                </div>
+                <p className="text-sm font-black text-on-surface uppercase tracking-widest leading-tight">
+                  Estás al día
+                </p>
+                <p className="text-xs font-bold text-on-surface-variant/50">
+                  No tienes notificaciones nuevas por ahora.
+                </p>
               </div>
             ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={`border-b border-slate-200 px-4 py-3 last:border-0 transition-colors ${
-                    !n.is_read ? "bg-indigo-500/[0.05]" : ""
-                  }`}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <span className="mt-0.5 text-base shrink-0">
-                      {TYPE_ICONS[n.type] ?? "🔔"}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-950 truncate">{n.title}</p>
-                        {!n.is_read && (
-                          <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
-                        )}
+              <div className="divide-y divide-outline-variant/10">
+                {notifications.map((n) => {
+                  const config = NOTIF_CONFIG[n.type] || { icon: Bell, color: "bg-surface-container text-on-surface-variant" };
+                  const Icon = config.icon;
+                  
+                  return (
+                    <div
+                      key={n.id}
+                      className={cn(
+                        "px-6 py-5 transition-all duration-300 hover:bg-surface-container/30",
+                        !n.is_read ? "bg-primary/[0.03]" : ""
+                      )}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                          config.color
+                        )}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-black text-on-surface uppercase tracking-tight truncate leading-tight">
+                              {n.title}
+                            </p>
+                            {!n.is_read && (
+                              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary shadow-sm shadow-primary/30" />
+                            )}
+                          </div>
+                          <p className="text-sm font-medium text-on-surface-variant mt-1 line-clamp-2 leading-relaxed">
+                            {n.message}
+                          </p>
+                          <span className="text-[10px] font-black text-on-surface-variant/30 uppercase tracking-widest mt-2 block">
+                            {formatDistanceToNow(new Date(n.created_at), {
+                              addSuffix: true,
+                              locale: es,
+                            })}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
-                      <p className="text-xs text-slate-400 mt-1">{formatRelativeTime(n.created_at)}</p>
                     </div>
-                  </div>
-                </div>
-              ))
+                  );
+                })}
+              </div>
             )}
+          </div>
+          
+          <div className="p-4 border-t border-outline-variant/10 bg-surface-container/10">
+            <button className="w-full py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary hover:bg-white transition-all">
+              Ver todo el historial
+            </button>
           </div>
         </div>
       )}

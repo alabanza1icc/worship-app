@@ -34,16 +34,14 @@ export default function DashboardLayout({
 
       {/* Header */}
       <header className="fixed left-0 right-0 top-0 z-50 flex h-20 items-center justify-between border-b border-outline-variant/10 bg-white/60 px-6 backdrop-blur-2xl">
-        <button className="p-2 rounded-xl hover:bg-surface-container transition-colors text-on-surface-variant">
-          <Menu className="h-6 w-6" />
-        </button>
-
-        <Link
-          href="/dashboard"
-          className="text-xl font-black tracking-tight text-on-surface font-headline"
-        >
-          Worship<span className="text-primary">App</span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard"
+            className="text-xl font-black tracking-tight text-on-surface font-headline"
+          >
+            Worship<span className="text-primary">App</span>
+          </Link>
+        </div>
 
         <div className="flex items-center gap-3">
           <NotificationsBell />
