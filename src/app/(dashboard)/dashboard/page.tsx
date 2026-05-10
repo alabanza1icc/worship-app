@@ -127,6 +127,14 @@ export default async function DashboardPage() {
     }
   }
 
+  // Fetch real notifications
+  const { data: notifications } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("profile_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
   // Fetch next 4 upcoming events (1 for hero, 3 for slider)
   const { data: upcomingEventsData } = await supabase
     .from("events")
