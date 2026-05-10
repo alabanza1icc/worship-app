@@ -13,7 +13,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase";
-import { Card } from "@/components/ui";
+import { Card, Badge } from "@/components/ui";
 import { DashboardAttendanceButtons } from "@/components/dashboard-attendance-buttons";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
