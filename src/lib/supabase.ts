@@ -13,7 +13,19 @@ export function createServerClient() {
 
 // Service role client for trusted server operations (bypasses RLS)
 export function createServiceClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    // Fall back to anon key with a warning — data will be limited by RLS.
+    // Fix: add SUPABASE_SERVICE_ROLE_KEY to your Vercel environment variables.
+    console.warn(
+      "[WorshipApp] SUPABASE_SERVICE_ROLE_KEY is not set. " +
+      "Falling back to anon key — RLS policies will apply. " +
+      "Set this variable in your Vercel project settings."
+    );
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
