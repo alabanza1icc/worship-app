@@ -61,7 +61,7 @@ export default async function DashboardPage() {
   if (!userId) redirect("/sign-in");
 
   const supabase = createServiceClient();
-  const clerkUser = await currentUser();
+  const clerkUser = await currentUser().catch(() => null);
 
   const { data: profile } = await supabase
     .from("profiles")
