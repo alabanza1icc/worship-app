@@ -210,7 +210,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
     >

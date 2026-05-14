@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createServiceClient } from "@/lib/supabase";
 import { requireEventManager } from "@/lib/permissions";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET(
   req: NextRequest,
@@ -70,6 +71,23 @@ export async function POST(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Notify the assigned member
+    const { data: eventData } = await supabase
+      .from("events")
+      .select("title")
+      .eq("id", eventId)
+      .single();
+
+    if (eventData && profile_id !== userId) {
+      await createNotification(supabase, {
+        profile_id,
+        type: "team_change",
+        title: "Fuiste asignado a un evento",
+        message: `Tienes un nuevo rol en el equipo: ${eventData.title}`,
+        data: { event_id: eventId, role_type },
+      });
     }
 
     return NextResponse.json(member, { status: 201 });

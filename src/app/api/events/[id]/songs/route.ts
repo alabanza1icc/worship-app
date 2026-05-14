@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createServiceClient } from "@/lib/supabase";
 import { requireEventManager } from "@/lib/permissions";
+import { notifyTeamMembers } from "@/lib/notifications";
 
 export async function GET(
   req: NextRequest,
@@ -84,6 +85,29 @@ export async function POST(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Notify team members about the new song
+    const { data: songData } = await supabase
+      .from("songs")
+      .select("title")
+      .eq("id", song_id)
+      .single();
+    const { data: eventData } = await supabase
+      .from("events")
+      .select("title")
+      .eq("id", eventId)
+      .single();
+
+    if (songData && eventData) {
+      await notifyTeamMembers(
+        supabase,
+        eventId,
+        "song_update",
+        "Nueva canción en el setlist",
+        `"${songData.title}" fue añadida al setlist de ${eventData.title}`,
+        userId
+      );
     }
 
     return NextResponse.json(eventSong, { status: 201 });

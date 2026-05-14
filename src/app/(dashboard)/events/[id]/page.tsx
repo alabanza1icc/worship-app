@@ -74,10 +74,10 @@ export default async function EventDetailPage({
     .eq("status", "active")
     .order("title");
 
-  // Fetch all profiles (for add team member modal)
+  // Fetch all profiles (for team assignment panel)
   const { data: allProfiles } = await supabase
     .from("profiles")
-    .select("id, full_name, role, instrument")
+    .select("id, full_name, avatar_url, role, roles, instrument, instruments, can_sing, is_leader")
     .eq("is_active", true)
     .order("full_name");
 

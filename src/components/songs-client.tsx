@@ -212,21 +212,76 @@ export function SongsClient({ songs: initialSongs, isAdmin }: SongsClientProps) 
 
       {/* Create Song Modal */}
       <Modal open={showCreateModal} onClose={handleClose} title="Nueva Canción">
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <Input label="Título *" type="text" placeholder="Ej: Maravilloso Dios" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <Input label="Artista *" type="text" placeholder="Ej: Marcos Witt" value={artist} onChange={(e) => setArtist(e.target.value)} required />
-          <div className="grid grid-cols-2 gap-4">
-            <Select label="Tonalidad *" options={KEY_OPTIONS} value={originalKey} onChange={(e) => setOriginalKey(e.target.value)} />
-            <Input label="Tempo" type="number" placeholder="BPM" value={tempo} onChange={(e) => setTempo(e.target.value)} min={40} max={300} />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Título *"
+            type="text"
+            placeholder="Ej: Maravilloso Dios"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+          <Input
+            label="Artista *"
+            type="text"
+            placeholder="Ej: Marcos Witt"
+            value={artist}
+            onChange={(e) => setArtist(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Tonalidad"
+              options={KEY_OPTIONS}
+              value={originalKey}
+              onChange={(e) => setOriginalKey(e.target.value)}
+            />
+            <Input
+              label="Tempo (BPM)"
+              type="number"
+              placeholder="72"
+              value={tempo}
+              onChange={(e) => setTempo(e.target.value)}
+              min={40}
+              max={300}
+            />
           </div>
-          <Input label="Etiquetas" type="text" placeholder="adoración, congregacional (coma)" value={tags} onChange={(e) => setTags(e.target.value)} />
-          <Textarea label="Notas del director" placeholder="Instrucciones para el equipo..." value={notes} onChange={(e) => setNotes(e.target.value)} />
-          <Input label="URL de Spotify" type="url" placeholder="https://open.spotify.com/track/..." value={spotifyUrl} onChange={(e) => setSpotifyUrl(e.target.value)} />
-          <Input label="URL de YouTube" type="url" placeholder="https://www.youtube.com/watch?v=..." value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} />
-          {formError && <p className="text-xs font-bold text-destructive ml-1">{formError}</p>}
-          <div className="flex gap-4 pt-4">
-            <Button type="button" variant="ghost" className="flex-1" onClick={handleClose} disabled={loading}>Cancelar</Button>
-            <Button type="submit" className="flex-1" disabled={loading}>{loading ? "Guardando..." : "Crear canción"}</Button>
+          <Input
+            label="Etiquetas"
+            type="text"
+            placeholder="adoración, congregacional (separadas por coma)"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
+          <Input
+            label="YouTube URL"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=..."
+            value={youtubeUrl}
+            onChange={(e) => setYoutubeUrl(e.target.value)}
+          />
+          <Input
+            label="Spotify URL"
+            type="url"
+            placeholder="https://open.spotify.com/track/..."
+            value={spotifyUrl}
+            onChange={(e) => setSpotifyUrl(e.target.value)}
+          />
+          {formError && (
+            <p className="text-xs font-bold text-destructive ml-1">{formError}</p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1"
+              onClick={handleClose}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className="flex-1 shadow-primary-glow" disabled={loading || !title.trim() || !artist.trim()}>
+              {loading ? "Guardando..." : "Crear canción"}
+            </Button>
           </div>
         </form>
       </Modal>
