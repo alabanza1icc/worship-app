@@ -57,6 +57,31 @@ const NOTIFICATION_CONFIG = {
 };
 
 export default async function DashboardPage() {
+  // TEMPORARY DIAGNOSTIC — will be removed once error is identified
+  try {
+    return await DashboardContent();
+  } catch (err: unknown) {
+    // Re-throw Next.js redirect/notFound errors so they work normally
+    if (
+      err instanceof Error &&
+      (err.message.includes("NEXT_REDIRECT") || err.message.includes("NEXT_NOT_FOUND"))
+    ) {
+      throw err;
+    }
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    return (
+      <div style={{ padding: 32, fontFamily: "monospace", background: "#fff1f1" }}>
+        <h1 style={{ color: "#c00", fontSize: 20 }}>🔴 Dashboard Debug Error</h1>
+        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 12 }}>{msg}</pre>
+        <p style={{ marginTop: 12, color: "#666", fontSize: 12 }}>
+          (Este mensaje es temporal para diagnóstico — remove DashboardPage wrapper once fixed)
+        </p>
+      </div>
+    );
+  }
+}
+
+async function DashboardContent() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
