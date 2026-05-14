@@ -24,6 +24,7 @@ interface Event {
   event_type: string;
   event_date: string;
   start_time: string | null;
+  end_time: string | null;
   location: string | null;
 }
 
@@ -78,10 +79,12 @@ export default async function DashboardPage() {
   // Fetch next upcoming event this user is assigned to
   const today = new Date().toISOString().split("T")[0];
 
+  // Only fetch pending assignments — once confirmed, event disappears from hero
   const { data: assignments } = await supabase
     .from("event_team")
     .select("id, event_id, role_type, status")
-    .eq("profile_id", userId);
+    .eq("profile_id", userId)
+    .eq("status", "pending");
 
   const eventIds = (assignments ?? []).map((a) => a.event_id);
 
@@ -90,7 +93,7 @@ export default async function DashboardPage() {
   if (eventIds.length > 0) {
     const { data: eventData } = await supabase
       .from("events")
-      .select("id, title, event_type, event_date, start_time, location")
+      .select("id, title, event_type, event_date, start_time, end_time, location")
       .in("id", eventIds)
       .gte("event_date", today)
       .order("event_date", { ascending: true })
@@ -112,7 +115,7 @@ export default async function DashboardPage() {
   if (!nextEvent) {
     const { data: latestEvent } = await supabase
       .from("events")
-      .select("id, title, event_type, event_date, start_time, location")
+      .select("id, title, event_type, event_date, start_time, end_time, location")
       .gte("event_date", today)
       .order("event_date", { ascending: true })
       .limit(1)
@@ -138,7 +141,7 @@ export default async function DashboardPage() {
   // Fetch next 4 upcoming events (1 for hero, 3 for slider)
   const { data: upcomingEventsData } = await supabase
     .from("events")
-    .select("id, title, event_type, event_date, start_time, location")
+    .select("id, title, event_type, event_date, start_time, end_time, location")
     .gte("event_date", today)
     .order("event_date", { ascending: true })
     .limit(4);
@@ -155,6 +158,15 @@ export default async function DashboardPage() {
   };
 
   const getDayNum = (dateStr: string) => dateStr.split("-")[2];
+
+  const formatTime12h = (time: string | null): string => {
+    if (!time) return "";
+    const [h, m] = time.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour = h % 12 || 12;
+    const mins = m > 0 ? `:${String(m).padStart(2, "0")}` : "";
+    return `${hour}${mins} ${ampm}`;
+  };
 
   const quickLinks = [
     { href: "/songs", icon: Music, label: "Canciones", color: "text-primary", bg: "bg-primary/10" },
@@ -218,7 +230,7 @@ export default async function DashboardPage() {
                       <div className="flex flex-col">
                         <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest">Horario</span>
                         <span className="text-sm font-bold text-on-surface">
-                          {heroEvent.start_time.slice(0, 5)} AM - 12:00 PM
+                          {formatTime12h(heroEvent.start_time)}{heroEvent.end_time ? ` – ${formatTime12h(heroEvent.end_time)}` : ""}
                         </span>
                       </div>
                     </div>
@@ -291,7 +303,7 @@ export default async function DashboardPage() {
                     </h4>
                     <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/60">
                       <Clock className="h-3 w-3" />
-                      {event.start_time?.slice(0, 5)} AM
+                      {formatTime12h(event.start_time)}{event.end_time ? ` – ${formatTime12h(event.end_time)}` : ""}
                     </div>
                   </div>
                 </Card>

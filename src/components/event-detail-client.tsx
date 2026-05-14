@@ -658,47 +658,18 @@ export function EventDetailClient({
         </div>
       </div>
 
-      {/* Quick Actions / Live Mode */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch">
-        <div className="flex-1 rounded-[24px] border border-outline-variant/20 bg-white p-5 shadow-card flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-sm",
-              isLive ? "bg-destructive shadow-destructive-glow text-white" : "bg-surface-container text-on-surface-variant"
-            )}>
-              <Radio className={cn("h-6 w-6", isLive && "animate-pulse")} />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-on-surface">Estado En Vivo</span>
-              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                {isLive ? "Transmitiendo a equipo" : "Listo para iniciar"}
-              </span>
-            </div>
-          </div>
-          {canManageEvent && (
-            <Button
-              size="sm"
-              variant={isLive ? "destructive" : "secondary"}
-              onClick={handleToggleLive}
-              disabled={loading}
-              className="rounded-xl px-5"
-            >
-              {isLive ? "Detener" : "Activar"}
-            </Button>
-          )}
-        </div>
-        <Link href={`/live/${event.id}`} className="sm:w-48">
-          <Button className="w-full h-full rounded-[24px] shadow-primary-glow flex flex-col gap-1 py-4">
-            <Scroll className="h-6 w-6" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Abrir En Vivo</span>
-          </Button>
-        </Link>
-      </div>
+      {/* Live Mode Button */}
+      <Link href={`/live/${event.id}`}>
+        <Button className="w-full rounded-[24px] shadow-primary-glow flex items-center gap-3 py-5">
+          <Radio className="h-5 w-5" />
+          <span className="text-sm font-black uppercase tracking-widest">Abrir En Vivo</span>
+        </Button>
+      </Link>
 
-      {/* My Attendance / RSVP */}
-      {(() => {
-        const myStatus = myTeamEntry?.status ?? myAttendance?.status ?? null;
-        const isInTeam = !!myTeamEntry;
+      {/* My Attendance / RSVP — only for assigned team members */}
+      {myTeamEntry && (() => {
+        const myStatus = myTeamEntry.status;
+        const isInTeam = true;
 
         return (
           <div className="rounded-[24px] border border-outline-variant/20 bg-white p-5 shadow-card flex items-center justify-between gap-4">
